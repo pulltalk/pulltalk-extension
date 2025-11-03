@@ -3,12 +3,23 @@
   "name": "PullTalk Test",
   "version": "1.0.0",
   "description": "Record and post video comments on GitHub PRs.",
-  "permissions": ["activeTab"],
-  "host_permissions": ["https://github.com/*"],
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://github.com/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://github.com/*/*/pull/*"],
-      "js": ["content.js"]
+      "matches": [
+        "https://github.com/*/*/pull/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "type": [
+        "module"
+      ]
     }
   ]
 }
