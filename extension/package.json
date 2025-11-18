@@ -13,8 +13,5 @@
     "typescript": "^5.2.0",
     "vite": "^4.5.14",
     "vite-plugin-web-extension": "^4.4.5"
-  },
-  "dependencies": {
-    "webextension-polyfill": "^0.10.0"
   }
 }

@@ -1,25 +1,19 @@
 import { defineConfig } from 'vite';
-import { resolve } from 'path';
-import fs from 'fs';
-
-const copyManifest = () => ({
-  name: 'copy-manifest',
-  writeBundle() {
-    fs.copyFileSync('manifest.json', 'dist/manifest.json');
-  },
-});
+import webExtension from 'vite-plugin-web-extension';
+import path from 'path';
 
 export default defineConfig({
-  build: {
-    outDir: 'dist',
-    rollupOptions: {
-      input: {
-        content: resolve(__dirname, 'src/content.ts'), // entry point
-      },
-      output: {
-        entryFileNames: '[name].js',
-      },
+    build: {
+        sourcemap: true,
+        outDir: 'dist',
+        emptyOutDir: true,
     },
-  },
-  plugins: [copyManifest()],
+    plugins: [
+        webExtension({
+            manifest: path.resolve(__dirname, 'manifest.json'),
+            // Provide additional configuration if needed later
+            watchFilePaths: [path.resolve(__dirname, 'src')],
+            browser: 'chrome'
+        })
+    ]
 });
