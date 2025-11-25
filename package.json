@@ -1,0 +1,31 @@
+{
+  "name": "pulltalk-extension",
+  "version": "1.0.0",
+  "description": "Clarify code reviews in 60 seconds — add voice, video, and visual context directly to GitHub and GitLab pull requests.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pulltalk/pulltalk-extension.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/pulltalk/pulltalk-extension/issues"
+  },
+  "homepage": "https://github.com/pulltalk/pulltalk-extension#readme",
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "tree": "^0.1.3"
+  }
+}

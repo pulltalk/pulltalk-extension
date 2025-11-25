@@ -1,73 +1,202 @@
-import { startRecording, stopRecording } from "./recorder";
+import { startRecording, stopRecording, isRecording } from "./recorder";
 import { uploadVideo } from "./upload";
+import { getCurrentPRId } from "./github";
 
-// Inject a record button into a PR comment box
-function injectRecordButton(commentBox: HTMLElement) {
-  if (commentBox.querySelector(".pulltalk-record-btn")) return;
-
-  console.log("Injecting PullTalk button into comment box:", commentBox);
+/**
+ * Injects a record button into a GitHub PR comment box
+ * @param commentBox - The comment box element to inject the button into
+ */
+function injectRecordButton(commentBox: HTMLElement): void {
+  // Prevent duplicate buttons
+  if (commentBox.querySelector(".pulltalk-record-btn")) {
+    return;
+  }
 
   const btn = document.createElement("button");
   btn.textContent = "🎥 Record";
   btn.className = "pulltalk-record-btn";
-  btn.style.marginLeft = "5px";
-  btn.style.padding = "3px 6px";
-  btn.style.fontSize = "12px";
-  btn.style.cursor = "pointer";
+  btn.type = "button"; // Prevent form submission
+  btn.setAttribute("aria-label", "Record video comment");
 
-  let recording = false;
-  let recordedBlob: Blob | null = null;
+  // Style the button to match GitHub's UI
+  Object.assign(btn.style, {
+    marginLeft: "8px",
+    padding: "5px 10px",
+    fontSize: "14px",
+    cursor: "pointer",
+    backgroundColor: "#238636",
+    color: "white",
+    border: "1px solid rgba(240, 246, 252, 0.1)",
+    borderRadius: "6px",
+    fontWeight: "500",
+    transition: "background-color 0.2s",
+  });
 
-  btn.addEventListener("click", async () => {
-    console.log("Button clicked. Recording state:", recording);
-
-    if (!recording) {
-      recordedBlob = null;
-      await startRecording(); // screen + mic
-      recording = true;
-      btn.textContent = "⏹ Stop";
-    } else {
-      recordedBlob = await stopRecording();
-      recording = false;
-      btn.textContent = "🎥 Record";
-
-      if (recordedBlob) {
-        const videoUrl = await uploadVideo(recordedBlob);
-        const textarea = commentBox.querySelector('textarea[name="comment[body]"]') as HTMLTextAreaElement;
-        if (textarea) {
-          textarea.value += `\n\n[Video explanation](${videoUrl})\n`;
-          console.log("Inserted video link:", videoUrl);
-        } else {
-          console.warn("Textarea not found in comment box");
-        }
-      }
+  // Hover effect
+  btn.addEventListener("mouseenter", () => {
+    if (btn.textContent === "🎥 Record") {
+      btn.style.backgroundColor = "#2ea043";
+    }
+  });
+  btn.addEventListener("mouseleave", () => {
+    if (btn.textContent === "🎥 Record") {
+      btn.style.backgroundColor = "#238636";
     }
   });
 
-  // Insert button safely after the textarea parent
+  let recording = false;
+
+  btn.addEventListener("click", async () => {
+    // Prevent multiple clicks
+    if (btn.disabled) {
+      return;
+    }
+
+    try {
+      if (!recording) {
+        // Start recording
+        btn.disabled = true;
+        btn.textContent = "⏸ Starting...";
+
+        await startRecording();
+        recording = true;
+        btn.disabled = false;
+        btn.textContent = "⏹ Stop Recording";
+        btn.style.backgroundColor = "#da3633";
+        btn.setAttribute("aria-label", "Stop recording");
+      } else {
+        // Stop recording
+        btn.disabled = true;
+        btn.textContent = "⏹ Stopping...";
+
+        const recordedBlob = await stopRecording();
+        recording = false;
+
+        if (recordedBlob && recordedBlob.size > 0) {
+          btn.textContent = "📤 Uploading...";
+
+          try {
+            const prId = getCurrentPRId();
+            const videoUrl = await uploadVideo(recordedBlob, prId);
+            const textarea = commentBox.querySelector(
+              'textarea[name="comment[body]"]'
+            ) as HTMLTextAreaElement | null;
+
+            if (textarea) {
+              const videoMarkdown = `\n\n[Video explanation](${videoUrl})\n`;
+              textarea.value += videoMarkdown;
+
+              // Trigger input event for GitHub's autosize
+              textarea.dispatchEvent(new Event("input", { bubbles: true }));
+
+              console.log("✅ Video link inserted:", videoUrl);
+            } else {
+              console.warn("⚠️ Textarea not found in comment box");
+              // Fallback: show URL to user
+              alert(`Video uploaded! URL: ${videoUrl}\n\nPlease copy this URL and paste it into your comment.`);
+            }
+          } catch (uploadError) {
+            console.error("❌ Upload failed:", uploadError);
+            alert(`Upload failed: ${uploadError instanceof Error ? uploadError.message : "Unknown error"}`);
+          }
+        } else {
+          console.warn("⚠️ Recording produced empty blob");
+          alert("Recording was empty. Please try again.");
+        }
+
+        // Reset button
+        btn.disabled = false;
+        btn.textContent = "🎥 Record";
+        btn.style.backgroundColor = "#238636";
+        btn.setAttribute("aria-label", "Record video comment");
+      }
+    } catch (error) {
+      console.error("❌ Recording error:", error);
+      recording = false;
+      btn.disabled = false;
+      btn.textContent = "🎥 Record";
+      btn.style.backgroundColor = "#238636";
+      btn.setAttribute("aria-label", "Record video comment");
+
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      alert(`Recording error: ${errorMessage}`);
+    }
+  });
+
+  // Insert button safely after the comment box
   const parent = commentBox.parentElement || commentBox;
-  parent.insertBefore(btn, commentBox.nextSibling);
+  if (parent.nextSibling) {
+    parent.parentElement?.insertBefore(btn, parent.nextSibling);
+  } else {
+    parent.parentElement?.appendChild(btn);
+  }
 }
 
-// Observe dynamically added comment boxes
-const observer = new MutationObserver((mutations) => {
-  for (const mutation of mutations) {
-    mutation.addedNodes.forEach((node) => {
-      if (node instanceof HTMLElement) {
-        const textareas = node.querySelectorAll('textarea[name="comment[body]"]');
-        textareas.forEach((textarea) => {
-          injectRecordButton(textarea.parentElement!);
-        });
+/**
+ * Initializes the content script and sets up observers
+ */
+function initialize(): void {
+  // Check if we're on a PR page
+  if (!window.location.href.match(/\/pull\/\d+/)) {
+    return;
+  }
+
+  // Function to inject buttons into all visible comment boxes
+  const injectAllButtons = (): void => {
+    const textareas = document.querySelectorAll<HTMLTextAreaElement>(
+      'textarea[name="comment[body]"]'
+    );
+    textareas.forEach((textarea) => {
+      const parent = textarea.parentElement;
+      if (parent && parent instanceof HTMLElement) {
+        injectRecordButton(parent);
       }
     });
+  };
+
+  // Initial injection for already loaded comment boxes
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", injectAllButtons);
+  } else {
+    injectAllButtons();
   }
-});
 
-observer.observe(document.body, { childList: true, subtree: true });
+  // Observe dynamically added comment boxes (for GitHub's SPA navigation)
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      mutation.addedNodes.forEach((node) => {
+        if (node instanceof HTMLElement) {
+          const textareas = node.querySelectorAll<HTMLTextAreaElement>(
+            'textarea[name="comment[body]"]'
+          );
+          textareas.forEach((textarea) => {
+            const parent = textarea.parentElement;
+            if (parent && parent instanceof HTMLElement) {
+              injectRecordButton(parent);
+            }
+          });
+        }
+      });
+    }
+  });
 
-// Initial injection for already loaded comment boxes
-document.querySelectorAll('textarea[name="comment[body]"]').forEach((textarea) => {
-  injectRecordButton(textarea.parentElement!);
-});
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
 
-console.log("PullTalk content script loaded");
+  // Re-inject on navigation (GitHub uses pushState)
+  let lastUrl = location.href;
+  new MutationObserver(() => {
+    const url = location.href;
+    if (url !== lastUrl && url.match(/\/pull\/\d+/)) {
+      lastUrl = url;
+      setTimeout(injectAllButtons, 500); // Small delay for DOM to settle
+    }
+  }).observe(document, { subtree: true, childList: true });
+
+  console.log("✅ PullTalk content script loaded");
+}
+
+// Start initialization
+initialize();

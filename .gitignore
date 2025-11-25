@@ -137,3 +137,19 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Extension-specific
+extension/dist/
+extension/.env
+extension/.env.local
+*.crx
+*.pem
+*.zip
+extension/*.zip
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

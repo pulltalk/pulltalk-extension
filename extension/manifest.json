@@ -1,11 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "PullTalk Test",
+  "name": "PullTalk",
   "version": "1.0.0",
   "description": "Record and post video comments on GitHub PRs.",
-  "permissions": [],
+  "permissions": [
+    "tabCapture",
+    "desktopCapture"
+  ],
   "host_permissions": [
-    "https://github.com/*"
+    "https://github.com/*",
+    "https://firebasestorage.googleapis.com/*",
+    "https://*.firebaseapp.com/*"
   ],
   "icons": {
     "16": "icons/icon16.png",

@@ -9,7 +9,8 @@
         ],
         "strict": true,
         "types": [
-            "chrome"
+            "chrome",
+            "node"
         ],
         "skipLibCheck": true,
         "esModuleInterop": true,
