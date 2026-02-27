@@ -37,7 +37,7 @@ Clarify code reviews in 60 seconds — add voice, video, and visual context dire
      ```
    - Firebase reads config from Vite env values (see `src/firebase.ts`)
    - Make sure Firebase Storage is enabled in your Firebase project
-   - See [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for storage rules configuration
+   - Configure Firebase Storage rules to allow authenticated uploads for your extension use case
 
 4. **Build the extension:**
    ```bash
@@ -114,12 +114,24 @@ npm run type-check
 
 ## Firebase Setup
 
-See [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for detailed Firebase configuration instructions.
-
 **Quick Setup:**
 1. Enable Firebase Storage in your Firebase project
-2. Configure storage rules (see FIREBASE_SETUP.md)
-3. The extension will automatically use your Firebase configuration
+2. Configure storage rules in Firebase Console (Storage → Rules). Example starter rules:
+
+```txt
+rules_version = '2';
+service firebase.storage {
+   match /b/{bucket}/o {
+      match /videos/{allPaths=**} {
+         allow read: if true;
+         allow write: if request.resource.size < 100 * 1024 * 1024;
+      }
+   }
+}
+```
+
+3. Copy `.env.example` to `.env` and fill values from Firebase project settings
+4. The extension will automatically use your Firebase configuration
 
 ## Troubleshooting
 
@@ -135,7 +147,7 @@ See [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for detailed Firebase configuration
 
 ### Upload failing
 - Verify Firebase Storage is enabled
-- Check Firebase Storage rules (see FIREBASE_SETUP.md)
+- Check Firebase Storage rules in Firebase Console
 - Verify file size is under 100MB
 - Check browser console for detailed error messages
 
@@ -154,10 +166,10 @@ See [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for detailed Firebase configuration
 
 ## License
 
-MIT License - see [LICENSE](../LICENSE) file
+MIT License - see [LICENSE](./LICENSE) file
 
 ## Support
 
 - Open an issue on GitHub
-- Check [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for Firebase-related issues
+- Include Firebase Storage rule and console error details when reporting upload issues
 
