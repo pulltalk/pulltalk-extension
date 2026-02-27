@@ -5,14 +5,26 @@ import { getStorage, type FirebaseStorage } from "firebase/storage";
  * Firebase configuration
  * Note: In a production extension, consider storing sensitive config in environment variables
  */
+const env = import.meta.env;
 const firebaseConfig = {
-    apiKey: "[REDACTED-API-KEY]",
-    authDomain: "[REDACTED-PROJECT].firebaseapp.com",
-    projectId: "[REDACTED-PROJECT]",
-    storageBucket: "[REDACTED-PROJECT].firebasestorage.app",
-    messagingSenderId: "[REDACTED-SENDER-ID]",
-    appId: "1:[REDACTED-SENDER-ID]:web:[REDACTED-APP-HASH]",
+    apiKey: env.VITE_FIREBASE_API_KEY,
+    authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: env.VITE_FIREBASE_APP_ID,
 };
+
+if (
+    !firebaseConfig.apiKey ||
+    !firebaseConfig.authDomain ||
+    !firebaseConfig.projectId ||
+    !firebaseConfig.storageBucket ||
+    !firebaseConfig.messagingSenderId ||
+    !firebaseConfig.appId
+) {
+    throw new Error("Missing Firebase configuration. Check your .env file.");
+}
 
 let app: FirebaseApp | null = null;
 let storage: FirebaseStorage | null = null;
@@ -24,7 +36,8 @@ let storage: FirebaseStorage | null = null;
 export function initializeFirebase(): FirebaseApp {
     if (!app) {
         app = initializeApp(firebaseConfig);
-        storage = getStorage(app);
+        // Use explicit bucket to avoid "no default bucket" errors at runtime.
+        storage = getStorage(app, `gs://${firebaseConfig.storageBucket}`);
     }
     return app;
 }

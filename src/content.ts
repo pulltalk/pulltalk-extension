@@ -1,4 +1,4 @@
-import { startRecording, stopRecording, isRecording } from "./recorder";
+import { startRecording, stopRecording } from "./recorder";
 import { uploadVideo } from "./upload";
 import { getCurrentPRId } from "./github";
 
