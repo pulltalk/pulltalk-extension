@@ -37,7 +37,7 @@ Clarify code reviews in 60 seconds — add voice, video, and visual context dire
      ```
    - Firebase reads config from Vite env values (see `src/firebase.ts`)
    - Make sure Firebase Storage is enabled in your Firebase project
-   - Configure Firebase Storage rules to allow authenticated uploads for your extension use case
+   - Configure Firebase Storage rules for the `pulltalk_videos/` path
 
 4. **Build the extension:**
    ```bash
@@ -122,12 +122,21 @@ npm run type-check
 rules_version = '2';
 service firebase.storage {
    match /b/{bucket}/o {
-      match /videos/{allPaths=**} {
+      match /pulltalk_videos/{allPaths=**} {
          allow read: if true;
-         allow write: if request.resource.size < 100 * 1024 * 1024;
+         allow write: if request.resource.size < 100 * 1024 * 1024
+                            && request.resource.contentType.matches('video/.*');
       }
    }
 }
+```
+
+For production, prefer requiring authentication for uploads:
+
+```txt
+allow write: if request.auth != null
+                   && request.resource.size < 100 * 1024 * 1024
+                   && request.resource.contentType.matches('video/.*');
 ```
 
 3. Copy `.env.example` to `.env` and fill values from Firebase project settings
