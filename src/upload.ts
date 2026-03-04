@@ -42,7 +42,7 @@ export async function uploadVideo(
     const storageRef = ref(storage, filename);
 
     // Upload the video blob
-    console.log(`📤 Uploading video to Firebase Storage: ${filename} (${(videoBlob.size / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`Uploading video to Firebase Storage: ${filename} (${(videoBlob.size / 1024 / 1024).toFixed(2)}MB)`);
 
     const uploadResult: UploadResult = await uploadBytes(storageRef, videoBlob, {
       contentType: "video/webm",
@@ -56,11 +56,11 @@ export async function uploadVideo(
     // Get the public download URL
     const downloadURL = await getDownloadURL(uploadResult.ref);
 
-    console.log(`✅ Video uploaded successfully: ${downloadURL}`);
+    console.log(`Video uploaded successfully: ${downloadURL}`);
 
     return downloadURL;
   } catch (error) {
-    console.error("❌ Firebase upload error:", error);
+    console.error("Firebase upload error:", error);
 
     if (error instanceof Error) {
       // Provide more specific error messages

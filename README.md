@@ -4,10 +4,10 @@ Clarify code reviews in 60 seconds — add voice, video, and visual context dire
 
 ## Features
 
-- 🎥 Record your screen and microphone directly in GitHub PRs
-- 📤 Automatic upload to Firebase Storage
-- 🔗 Automatic link insertion into PR comments
-- 🎨 Beautiful UI that matches GitHub's design
+- Record your screen and microphone directly in GitHub PRs
+- Automatic upload to Firebase Storage
+- Automatic link insertion into PR comments
+- Beautiful UI that matches GitHub's design
 
 ## Development Setup
 

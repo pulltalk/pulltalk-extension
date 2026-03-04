@@ -3,7 +3,7 @@ import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 /**
  * Firebase configuration
- * Note: In a production extension, consider storing sensitive config in environment variables
+
  */
 const env = import.meta.env;
 const firebaseConfig = {

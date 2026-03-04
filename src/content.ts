@@ -13,7 +13,7 @@ function injectRecordButton(commentBox: HTMLElement): void {
   }
 
   const btn = document.createElement("button");
-  btn.textContent = "🎥 Record";
+  btn.textContent = "Record";
   btn.className = "pulltalk-record-btn";
   btn.type = "button"; // Prevent form submission
   btn.setAttribute("aria-label", "Record video comment");
@@ -34,12 +34,12 @@ function injectRecordButton(commentBox: HTMLElement): void {
 
   // Hover effect
   btn.addEventListener("mouseenter", () => {
-    if (btn.textContent === "🎥 Record") {
+    if (btn.textContent === "Record") {
       btn.style.backgroundColor = "#2ea043";
     }
   });
   btn.addEventListener("mouseleave", () => {
-    if (btn.textContent === "🎥 Record") {
+    if (btn.textContent === "Record") {
       btn.style.backgroundColor = "#238636";
     }
   });
@@ -56,24 +56,24 @@ function injectRecordButton(commentBox: HTMLElement): void {
       if (!recording) {
         // Start recording
         btn.disabled = true;
-        btn.textContent = "⏸ Starting...";
+        btn.textContent = "Starting...";
 
         await startRecording();
         recording = true;
         btn.disabled = false;
-        btn.textContent = "⏹ Stop Recording";
+        btn.textContent = "Stop Recording";
         btn.style.backgroundColor = "#da3633";
         btn.setAttribute("aria-label", "Stop recording");
       } else {
         // Stop recording
         btn.disabled = true;
-        btn.textContent = "⏹ Stopping...";
+        btn.textContent = "Stopping...";
 
         const recordedBlob = await stopRecording();
         recording = false;
 
         if (recordedBlob && recordedBlob.size > 0) {
-          btn.textContent = "📤 Uploading...";
+          btn.textContent = "Uploading...";
 
           try {
             const prId = getCurrentPRId();
@@ -89,32 +89,32 @@ function injectRecordButton(commentBox: HTMLElement): void {
               // Trigger input event for GitHub's autosize
               textarea.dispatchEvent(new Event("input", { bubbles: true }));
 
-              console.log("✅ Video link inserted:", videoUrl);
+              console.log("Video link inserted:", videoUrl);
             } else {
-              console.warn("⚠️ Textarea not found in comment box");
+              console.warn("Textarea not found in comment box");
               // Fallback: show URL to user
               alert(`Video uploaded! URL: ${videoUrl}\n\nPlease copy this URL and paste it into your comment.`);
             }
           } catch (uploadError) {
-            console.error("❌ Upload failed:", uploadError);
+            console.error("Upload failed:", uploadError);
             alert(`Upload failed: ${uploadError instanceof Error ? uploadError.message : "Unknown error"}`);
           }
         } else {
-          console.warn("⚠️ Recording produced empty blob");
+          console.warn("Recording produced empty blob");
           alert("Recording was empty. Please try again.");
         }
 
         // Reset button
         btn.disabled = false;
-        btn.textContent = "🎥 Record";
+        btn.textContent = "Record";
         btn.style.backgroundColor = "#238636";
         btn.setAttribute("aria-label", "Record video comment");
       }
     } catch (error) {
-      console.error("❌ Recording error:", error);
+      console.error("Recording error:", error);
       recording = false;
       btn.disabled = false;
-      btn.textContent = "🎥 Record";
+      btn.textContent = "Record";
       btn.style.backgroundColor = "#238636";
       btn.setAttribute("aria-label", "Record video comment");
 
@@ -195,7 +195,7 @@ function initialize(): void {
     }
   }).observe(document, { subtree: true, childList: true });
 
-  console.log("✅ PullTalk content script loaded");
+  console.log("PullTalk content script loaded");
 }
 
 // Start initialization
