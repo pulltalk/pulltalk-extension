@@ -9,6 +9,7 @@ import {
 } from "@/shared/constants";
 
 let ffmpegPromise: Promise<FFmpeg> | null = null;
+let ffmpegProgressSink: ((pct: number) => void) | undefined;
 
 async function loadFfmpeg(
   onProgress?: (pct: number) => void,
@@ -27,9 +28,10 @@ async function loadFfmpeg(
   (ffmpeg as FfmpegWithProgress).on("progress", ({ progress }) => {
     if (typeof progress === "number" && Number.isFinite(progress)) {
       peak = Math.max(peak, Math.round(progress * 100));
-      onProgress?.(Math.min(99, peak));
+      ffmpegProgressSink?.(Math.min(99, peak));
     }
   });
+  ffmpegProgressSink = onProgress;
 
   // MV3 CSP forbids blob: in script-src. Force classic workers so
   // importScripts() loads extension URLs directly.
@@ -55,9 +57,11 @@ async function loadFfmpeg(
 export function getFFmpeg(
   onProgress?: (pct: number) => void,
 ): Promise<FFmpeg> {
+  ffmpegProgressSink = onProgress;
   if (!ffmpegPromise) {
     ffmpegPromise = loadFfmpeg(onProgress).catch((err) => {
       ffmpegPromise = null;
+      ffmpegProgressSink = undefined;
       throw err;
     });
   }
@@ -74,6 +78,7 @@ async function resetFFmpeg(): Promise<void> {
     /* ignore reset errors */
   } finally {
     ffmpegPromise = null;
+    ffmpegProgressSink = undefined;
   }
 }
 
@@ -118,18 +123,16 @@ function buildFilterChain(
 }
 
 async function runFfmpegAttempt(
-  blob: Blob,
+  ffmpeg: FFmpeg,
+  inputData: Uint8Array,
   state: EditorState,
   trimStart: number,
   trimLen: number,
   strategy: EncodeStrategy,
-  onProgress?: (pct: number) => void,
 ): Promise<Blob> {
-  await resetFFmpeg();
-  const ffmpeg = await getFFmpeg(onProgress);
   const inputFile = "in.webm";
   const outputFile = "out.webm";
-  await ffmpeg.writeFile(inputFile, await fetchFile(blob));
+  await ffmpeg.writeFile(inputFile, inputData);
 
   const vf = buildFilterChain(state, strategy);
   const args = [
@@ -162,9 +165,15 @@ async function runFfmpegAttempt(
     );
   }
 
-  await ffmpeg.exec(args);
-  const out = await ffmpeg.readFile(outputFile);
-  return new Blob([out as unknown as BlobPart], { type: "video/webm" });
+  try {
+    await ffmpeg.exec(args);
+    const out = await ffmpeg.readFile(outputFile);
+    return new Blob([out as unknown as BlobPart], { type: "video/webm" });
+  } finally {
+    // Keep wasm FS lean across attempts/runs.
+    await ffmpeg.deleteFile(outputFile).catch(() => {});
+    await ffmpeg.deleteFile(inputFile).catch(() => {});
+  }
 }
 
 export async function processVideo(
@@ -172,6 +181,7 @@ export async function processVideo(
   state: EditorState,
   onProgress?: (pct: number) => void,
 ): Promise<Blob> {
+  const inputData = await fetchFile(blob);
   const s = state.trimStart;
   const e = state.trimEnd;
   const len = Math.max(0.1, Math.min(e - s, state.dur - s + 1e6));
@@ -193,8 +203,8 @@ export async function processVideo(
     label: "vp9",
     videoCodec: "libvpx-vp9",
     videoBitrate: EDITOR_REENCODE_BPS,
-    cpuUsed: EDITOR_REENCODE_CPU_USED,
-    deadline: EDITOR_REENCODE_DEADLINE,
+    cpuUsed: "6",
+    deadline: "realtime",
     audioCodec: state.noAudio ? "none" : "libopus",
     audioBitrate: "96k",
   };
@@ -225,22 +235,24 @@ export async function processVideo(
 
   let lastErr: unknown = null;
   const totalAttempts = attempts.length;
+  let ffmpeg = await getFFmpeg();
   for (let i = 0; i < attempts.length; i += 1) {
     const strategy = attempts[i]!;
     try {
+      // Rebind progress callback for this attempt.
+      ffmpeg = await getFFmpeg((pct) => {
+        const base = Math.floor((i * 100) / totalAttempts);
+        const span = Math.ceil(100 / totalAttempts);
+        const mapped = Math.min(99, base + Math.floor((Math.max(0, Math.min(100, pct)) * span) / 100));
+        onProgress?.(mapped);
+      });
       const out = await runFfmpegAttempt(
-        blob,
+        ffmpeg,
+        inputData,
         state,
         s,
         len,
         strategy,
-        (pct) => {
-          // Keep UI progress monotonic across retries: each attempt owns a range.
-          const base = Math.floor((i * 100) / totalAttempts);
-          const span = Math.ceil(100 / totalAttempts);
-          const mapped = Math.min(99, base + Math.floor((Math.max(0, Math.min(100, pct)) * span) / 100));
-          onProgress?.(mapped);
-        },
       );
       onProgress?.(100);
       return out;
@@ -250,6 +262,8 @@ export async function processVideo(
       if (!canRetry) break;
       // Always retry edited outputs with safer strategies; OOM is the common case.
       if (!isWasmOutOfMemoryError(err) && !needsReencode) break;
+      // Only reset on retry; this avoids a full wasm reload on success path.
+      await resetFFmpeg();
     }
   }
 
