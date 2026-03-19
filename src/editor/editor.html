@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PullTalk — Review recording</title>
+  </head>
+  <body>
+    <div id="root">
+      <div id="pt-boot" class="pt-screen-msg" hidden></div>
+
+      <div id="pt-app" class="pt-app">
+        <header class="pt-header">
+          <div class="pt-header__top">
+            <span class="pt-header__brand">PullTalk</span>
+            <h1 class="pt-header__title">Review recording</h1>
+          </div>
+          <p class="pt-header__context" id="pt-breadcrumb">
+            <span id="pt-bc-repo">—</span>
+            <span id="pt-bc-pr"></span>
+          </p>
+        </header>
+
+        <div class="pt-shell">
+          <div class="pt-shell__main">
+            <div
+              id="pt-processing-banner"
+              class="pt-processing-banner"
+              hidden
+              role="status"
+              aria-live="polite"
+            >
+              <span class="pt-processing-banner__text" id="pt-processing-banner-text"></span>
+              <span class="pt-processing-banner__pct" id="pt-processing-banner-pct"></span>
+            </div>
+
+            <div class="pt-player-group">
+              <div class="pt-player-wrap" id="pt-player-wrap">
+                <video id="pt-video" playsinline></video>
+                <button type="button" class="pt-play-overlay" id="pt-play-overlay" aria-label="Play or pause">
+                  <span class="pt-play-circle">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                  </span>
+                </button>
+                <div class="pt-crop-overlay" id="pt-crop-overlay" hidden>
+                  <div class="pt-crop-rect" id="pt-crop-rect">
+                    <div class="pt-crop-handle" data-dir="nw"></div>
+                    <div class="pt-crop-handle" data-dir="ne"></div>
+                    <div class="pt-crop-handle" data-dir="sw"></div>
+                    <div class="pt-crop-handle" data-dir="se"></div>
+                    <div class="pt-crop-handle" data-dir="n"></div>
+                    <div class="pt-crop-handle" data-dir="s"></div>
+                    <div class="pt-crop-handle" data-dir="e"></div>
+                    <div class="pt-crop-handle" data-dir="w"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pt-transport" id="pt-transport">
+                <button type="button" class="pt-transport__btn" id="pt-skip-back" aria-label="Skip back 5 seconds">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 4 12 11 7"/><polyline points="20 17 13 12 20 7"/></svg>
+                </button>
+                <button type="button" class="pt-transport__btn pt-transport__btn--play" id="pt-play-btn" aria-label="Play">
+                  <svg id="pt-transport-play-icon" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                </button>
+                <button type="button" class="pt-transport__btn" id="pt-skip-fwd" aria-label="Skip forward 5 seconds">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 7 20 12 13 17"/><polyline points="4 7 11 12 4 17"/></svg>
+                </button>
+                <div class="pt-transport__time">
+                  <span class="pt-transport__cur" id="pt-time-cur">00:00</span>
+                  <span class="pt-transport__sep">/</span>
+                  <span class="pt-transport__total" id="pt-time-total">--:--</span>
+                </div>
+              </div>
+
+              <div class="pt-crop-bar" id="pt-crop-bar" hidden>
+                <span class="pt-crop-bar__label">Crop mode — drag to draw, or resize the handles</span>
+                <button type="button" class="pt-btn pt-btn--ghost pt-btn--sm" id="pt-crop-reset">Reset</button>
+                <button type="button" class="pt-btn pt-btn--outline pt-btn--sm" id="pt-crop-done">Done</button>
+              </div>
+            </div>
+
+            <section class="pt-panel" id="pt-trim-panel" aria-labelledby="pt-trim-heading">
+              <h2 class="pt-panel__title" id="pt-trim-heading">Trim</h2>
+              <div class="pt-timeline-head">
+                <div class="pt-timeline-inputs">
+                  <div class="pt-field-inline">
+                    <label for="pt-trim-start">Start</label>
+                    <input type="number" id="pt-trim-start" min="0" step="0.1" value="0" />
+                    <span class="pt-field-suffix">s</span>
+                  </div>
+                  <div class="pt-field-inline">
+                    <label for="pt-trim-end">End</label>
+                    <input type="number" id="pt-trim-end" min="0" step="0.1" value="0" />
+                    <span class="pt-field-suffix">s</span>
+                  </div>
+                </div>
+              </div>
+              <div class="pt-scrubber" id="pt-scrubber" role="slider" aria-label="Trim range">
+                <div class="pt-scrubber__wave"></div>
+                <div class="pt-scrubber__segments"></div>
+                <div class="pt-scrubber__range" id="pt-range"></div>
+                <div class="pt-scrubber__playhead" id="pt-playhead"></div>
+                <div class="pt-handle" id="pt-handle-start" data-handle="start" aria-label="Trim start"></div>
+                <div class="pt-handle" id="pt-handle-end" data-handle="end" aria-label="Trim end"></div>
+              </div>
+              <p class="pt-hint" id="pt-duration-hint"></p>
+            </section>
+
+            <section class="pt-panel" id="pt-audio-panel" aria-labelledby="pt-audio-heading">
+              <h2 class="pt-panel__title" id="pt-audio-heading">Audio</h2>
+              <div class="pt-toggle-row">
+                <div class="pt-toggle-row__text">
+                  <strong>Remove audio</strong>
+                  <span>Export video without sound</span>
+                </div>
+                <button type="button" class="pt-switch" id="pt-no-audio" role="switch" aria-checked="false" aria-label="Remove audio"></button>
+              </div>
+            </section>
+          </div>
+
+          <aside class="pt-shell__sidebar" aria-label="Editor actions">
+            <div class="pt-sidebar__section">
+              <h2 class="pt-sidebar__heading">Edit</h2>
+              <div class="pt-sidebar__cards">
+                <button type="button" class="pt-action-card" id="pt-card-trim" data-scroll-target="pt-trim-panel">
+                  <span class="pt-action-card__icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="6" cy="6" r="3" />
+                      <circle cx="6" cy="18" r="3" />
+                      <line x1="20" y1="4" x2="8.12" y2="15.88" />
+                      <line x1="14.47" y1="14.48" x2="20" y2="20" />
+                      <line x1="8.12" y1="8.12" x2="12" y2="12" />
+                    </svg>
+                  </span>
+                  <span class="pt-action-card__body">
+                    <span class="pt-action-card__title">Trim</span>
+                    <span class="pt-action-card__desc" id="pt-card-trim-desc">Preparing…</span>
+                  </span>
+                  <span class="pt-action-card__chevron" aria-hidden="true">›</span>
+                </button>
+                <button type="button" class="pt-action-card" id="pt-card-crop">
+                  <span class="pt-action-card__icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M6 3h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+                      <path d="M9 9h6v6H9z" />
+                    </svg>
+                  </span>
+                  <span class="pt-action-card__body">
+                    <span class="pt-action-card__title">Crop</span>
+                    <span class="pt-action-card__desc" id="pt-card-crop-desc">Preparing…</span>
+                  </span>
+                  <span class="pt-action-card__chevron" aria-hidden="true">›</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="pt-sidebar__section pt-sidebar__section--publish">
+              <h2 class="pt-sidebar__heading">Publish</h2>
+              <p class="pt-sidebar__publish-hint">Upload WebM to storage and attach the link to your PR comment.</p>
+              <div class="pt-status pt-status--ok" id="pt-status-line">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                <span id="pt-status-text">Ready</span>
+              </div>
+              <div class="pt-sidebar__actions">
+                <button type="button" class="pt-btn pt-btn--ghost pt-btn--block" id="pt-btn-discard">Discard</button>
+                <button type="button" class="pt-btn pt-btn--outline pt-btn--block" id="pt-btn-upload">Upload without edits</button>
+                <button type="button" class="pt-btn pt-btn--primary pt-btn--block" id="pt-btn-apply">Process &amp; upload</button>
+              </div>
+              <p id="pt-inline-err" class="pt-inline-err" hidden></p>
+            </div>
+          </aside>
+        </div>
+
+        <p class="pt-footer-version" id="pt-version-label"></p>
+      </div>
+
+      <div id="pt-modal-overlay" class="pt-modal-overlay" hidden>
+        <div class="pt-modal" role="dialog" aria-modal="true" aria-labelledby="pt-modal-title">
+          <p class="pt-modal__eyebrow" id="pt-modal-eyebrow">Please wait</p>
+          <div class="pt-modal__head">
+            <h2 class="pt-modal__title" id="pt-modal-title">Working…</h2>
+            <div class="pt-modal__pct" id="pt-modal-pct">—</div>
+          </div>
+          <div class="pt-progress-track">
+            <div class="pt-progress-fill" id="pt-progress-fill"></div>
+          </div>
+          <div class="pt-modal__info" id="pt-modal-info"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -4,181 +4,102 @@ Clarify code reviews in 60 seconds — add voice, video, and visual context dire
 
 ## Features
 
-- Record your screen and microphone directly in GitHub PRs
-- Automatic upload to Firebase Storage
-- Automatic link insertion into PR comments
-- Beautiful UI that matches GitHub's design
+- **Capture:** Chrome tab, window, entire screen, **region** (crop after share), **camera only**, or **screen + camera (PiP)**
+- **Audio:** mic + tab/system audio; optional **push-to-talk** (hold Space)
+- **On-screen:** zoom, spotlight, cursor ring, click pulses, **draw / text / arrows / shapes**
+- **AI virtual background** on camera (MediaPipe) with solid-color fill
+- **Recorder UX:** draggable toolbar, hide UI (**H**), optional auto-stop timer
+- **Editor** (after stop): trim, crop (%), strip audio → **WebM** → Firebase upload → short blockquote + reference link in the PR comment
+- `npm install` copies **MediaPipe** + **ffmpeg.wasm** assets into `public/` for the packaged extension
 
 ## Development Setup
 
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Chrome/Edge browser (for testing)
+- Chrome/Edge (MV3 service worker + module)
 - Firebase project with Storage enabled
 
 ### Installation
 
-1. **Clone the repository:**
+1. Clone and install:
    ```bash
    git clone https://github.com/pulltalk/pulltalk-extension.git
    cd pulltalk-extension
-   ```
-
-2. **Install dependencies:**
-   ```bash
    npm install
    ```
 
-3. **Configure Firebase:**
-   - Copy `.env.example` to `.env` and fill in your Firebase values
-     ```bash
-     cp .env.example .env
-     ```
-   - Firebase reads config from Vite env values (see `src/firebase.ts`)
-   - Make sure Firebase Storage is enabled in your Firebase project
-   - Configure Firebase Storage rules for the `pulltalk_videos/` path
+2. **Configure Firebase:** copy `.env.example` to `.env` and set `VITE_FIREBASE_*` (used at build time for the service worker).
 
-4. **Build the extension:**
-   ```bash
-   npm run build
-   ```
+3. **Build:** `npm run build`
 
-5. **Load in Chrome:**
-   - Open Chrome and navigate to `chrome://extensions/`
-   - Enable "Developer mode" (toggle in top right)
-   - Click "Load unpacked"
-   - Select the `dist` folder
+4. **Load in Chrome:** `chrome://extensions/` → Developer mode → Load unpacked → select `dist/`
 
 ## Development
 
-### Development Mode
-
 ```bash
-npm run dev
-```
-
-This will:
-- Watch for file changes
-- Rebuild automatically
-- Reload the extension in Chrome (you may need to manually reload)
-
-### Build for Production
-
-```bash
-npm run build
-```
-
-This will:
-- Type-check the code
-- Build and bundle everything
-- Output to `dist/` folder
-
-### Code Quality
-
-```bash
-# Lint code
+npm run dev    # watch + reload extension
+npm run build  # typecheck + production build
 npm run lint
-
-# Fix linting issues
-npm run lint:fix
-
-# Type check
 npm run type-check
 ```
 
-## Project Structure
+## Project structure
 
 ```
-.
-├── src/
-│   ├── content.ts      # Main content script (injected into GitHub)
-│   ├── recorder.ts     # Screen recording functionality
-│   ├── upload.ts       # Firebase Storage upload
-│   ├── firebase.ts     # Firebase initialization
-│   └── github.ts       # GitHub utility functions
-├── public/
-│   └── icons/          # Extension icons
-├── manifest.json       # Chrome extension manifest
-├── vite.config.ts      # Vite build configuration
-├── tsconfig.json       # TypeScript configuration
-└── package.json        # Dependencies and scripts
+src/
+  content/       # PR page UI: modal, Record button, toasts, messaging
+  background/    # Orchestration, upload, IndexedDB read after record
+  recorder/      # Compositor, capture, audio graph, recorder UI
+  editor/        # Post-record trim/crop (ffmpeg.wasm) → upload
+  github/        # PR/repo helpers, comment DOM, markdown insert
+  storage/       # Firebase (lazy-safe), upload, storage paths
+  shared/        # Message types, IndexedDB helpers
+docs/
+  BUSINESS_LOGIC.md          # Product scope and session rules
+  RECORDER_ARCHITECTURE.md   # Capture flow, compositor, MV3 session
+  RECORDING_CAPSULE_SPEC.md  # Recorder overlay UI spec
 ```
 
-## How It Works
+## How it works
 
-1. **Content Script Injection**: The extension injects a "Record" button into GitHub PR comment boxes
-2. **Screen Recording**: Uses browser's `getDisplayMedia` API to capture screen + microphone
-3. **Video Upload**: Uploads the recorded video to Firebase Storage
-4. **Link Insertion**: Automatically inserts a markdown link to the video in the comment box
+1. Content script injects **Record** on PR comment areas (MutationObserver for GitHub SPA).
+2. Modal → **Start** → background opens the recorder tab and signals capture via a **connected port**.
+3. **Stop** in the PullTalk recorder tab → blob in IndexedDB → **editor** tab → upload → background → `recording-url` → markdown inserted.
 
-## Firebase Setup
+See [docs/RECORDER_ARCHITECTURE.md](docs/RECORDER_ARCHITECTURE.md) for capture flow, compositor, and blob handoff details.
 
-**Quick Setup:**
-1. Enable Firebase Storage in your Firebase project
-2. Configure storage rules in Firebase Console (Storage → Rules). Example starter rules:
+## Firebase Storage rules
+
+Videos are stored as `pulltalk_videos/v/{timestamp}_{id}.webm` (short URLs). Example rules:
 
 ```txt
 rules_version = '2';
 service firebase.storage {
-   match /b/{bucket}/o {
-      match /pulltalk_videos/{allPaths=**} {
-         allow read: if true;
-         allow write: if request.resource.size < 100 * 1024 * 1024
-                            && request.resource.contentType.matches('video/.*');
-      }
-   }
+  match /b/{bucket}/o {
+    match /pulltalk_videos/v/{videoId} {
+      allow read: if true;
+      allow write: if request.resource.size < 100 * 1024 * 1024
+                      && request.resource.contentType.matches('video/.*');
+    }
+    // Legacy nested paths (older uploads)
+    match /pulltalk_videos/{owner}/{repo}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource.size < 100 * 1024 * 1024
+                      && request.resource.contentType.matches('video/.*');
+    }
+  }
 }
 ```
 
-For production, prefer requiring authentication for uploads:
-
-```txt
-allow write: if request.auth != null
-                   && request.resource.size < 100 * 1024 * 1024
-                   && request.resource.contentType.matches('video/.*');
-```
-
-3. Copy `.env.example` to `.env` and fill values from Firebase project settings
-4. The extension will automatically use your Firebase configuration
+Tighten `write` for production (e.g. auth). You can drop the legacy `match` if you never used the old path layout.
 
 ## Troubleshooting
 
-### Extension not loading
-- Make sure you built the extension: `npm run build`
-- Check Chrome's extension error page: `chrome://extensions/`
-- Look for errors in the browser console
-
-### Recording not working
-- Grant screen capture permissions when prompted
-- Grant microphone permissions when prompted
-- Check browser console for errors
-
-### Upload failing
-- Verify Firebase Storage is enabled
-- Check Firebase Storage rules in Firebase Console
-- Verify file size is under 100MB
-- Check browser console for detailed error messages
-
-### Button not appearing
-- Make sure you're on a GitHub PR page (`/pull/*`)
-- Refresh the page
-- Check browser console for errors
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run `npm run lint` and `npm run type-check`
-5. Submit a pull request
+- **Recorder tab / permissions:** Approve screen + mic when prompted; keep the PR tab open until upload finishes.
+- **Upload fails:** Check Storage rules, `VITE_FIREBASE_*` in `.env`, and the service worker console (`chrome://extensions` → service worker “Inspect”).
+- **Button missing:** Must be on a PR URL matching `github.com/*/*/pull/*`.
 
 ## License
 
-MIT License - see [LICENSE](./LICENSE) file
-
-## Support
-
-- Open an issue on GitHub
-- Include Firebase Storage rule and console error details when reporting upload issues
-
+MIT — see [LICENSE](./LICENSE).

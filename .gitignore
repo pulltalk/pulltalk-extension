@@ -150,9 +150,17 @@ dist/
 *.pem
 *.zip
 
+# Postinstall-copied assets (regenerated from node_modules)
+public/mediapipe/
+public/ffmpeg/
+
+# Test coverage
+coverage/
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.cursor/

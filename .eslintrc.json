@@ -9,7 +9,8 @@
   "plugins": ["@typescript-eslint"],
   "extends": [
     "eslint:recommended",
-    "plugin:@typescript-eslint/recommended"
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/recommended-requiring-type-checking"
   ],
   "env": {
     "browser": true,
@@ -20,10 +21,13 @@
     "@typescript-eslint/explicit-function-return-type": "warn",
     "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
-    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "@typescript-eslint/no-floating-promises": "error",
+    "@typescript-eslint/no-misused-promises": "error",
+    "@typescript-eslint/require-await": "warn",
+    "no-console": ["warn", { "allow": ["warn", "error", "info", "log"] }],
     "prefer-const": "error",
-    "no-var": "error"
+    "no-var": "error",
+    "eqeqeq": ["error", "always", { "null": "ignore" }]
   },
-  "ignorePatterns": ["dist", "node_modules", "*.config.js"]
+  "ignorePatterns": ["dist", "node_modules", "*.config.js", "*.config.ts"]
 }
-
