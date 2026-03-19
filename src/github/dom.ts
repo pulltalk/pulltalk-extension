@@ -5,9 +5,3 @@ export function findCommentTextareas(): HTMLTextAreaElement[] {
     )
   );
 }
-
-export function getPrimaryCommentParent(): HTMLElement | null {
-  const [first] = findCommentTextareas();
-  const parent = first?.parentElement;
-  return parent instanceof HTMLElement ? parent : null;
-}

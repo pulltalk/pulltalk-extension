@@ -1,10 +1,8 @@
 /* ── Timing ──────────────────────────────────────────────────────── */
 
 export const OPEN_RECORDER_SETUP_TIMEOUT_MS = 30_000;
-export const STOP_POLL_INTERVAL_MS = 200;
 export const SESSION_POLL_DELAY_MS = 50;
 export const SESSION_POLL_MAX_ATTEMPTS = 30;
-export const TAB_LIST_POLL_MS = 2_000;
 
 /* ── Video ───────────────────────────────────────────────────────── */
 
@@ -32,14 +30,3 @@ export const EDITOR_REENCODE_BPS = "4M";
 export const EDITOR_REENCODE_CPU_USED = "4";
 export const EDITOR_REENCODE_DEADLINE = "good";
 
-/* ── Compositor ──────────────────────────────────────────────────── */
-
-export const CLICK_PULSE_MS = 600;
-export const MAX_ZOOM = 4;
-export const MIN_ZOOM = 1;
-
-/* ── Editor ──────────────────────────────────────────────────────── */
-
-export const TRANSPORT_SKIP_SEC = 5;
-export const MIN_CROP_PX = 20;
-export const MIN_TRIM_SEC = 0.1;
