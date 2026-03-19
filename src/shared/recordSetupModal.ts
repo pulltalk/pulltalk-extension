@@ -83,7 +83,7 @@ export function openRecordModal(prTabId: number | null): Promise<ModalResult> {
           </span>
           <div>
             <h2 id="pulltalk-modal-title" style="margin:0;font-size:19px;font-weight:800;letter-spacing:-0.03em;color:#0f172a">Record video comment</h2>
-            <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.45">Configure capture here, then record in this tab. Draw on the preview, trim, crop, and upload to your PR.</p>
+            <p style="margin:6px 0 0;font-size:13px;color:#64748b;line-height:1.45">Pick a source and start recording.</p>
           </div>
         </div>
         <button type="button" id="pulltalk-modal-close" aria-label="Close"
@@ -94,26 +94,21 @@ export function openRecordModal(prTabId: number | null): Promise<ModalResult> {
 
       <div style="padding:16px 22px 0">
         <p style="margin:0 0 10px;font-size:10px;font-weight:800;letter-spacing:0.1em;color:#94a3b8">CAPTURE SOURCE</p>
-        <p style="margin:0 0 14px;font-size:12px;color:#64748b;line-height:1.5">
-          <strong>Chrome tab</strong>: choose the tab below. <strong>Window</strong> and <strong>Entire screen</strong>: Chrome's share dialog opens next. Toggle <strong>Camera</strong> below to add a picture-in-picture overlay.
-        </p>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-          ${capCell("tab", ICON_TAB, "Chrome tab", "Pick the tab below", true)}
-          ${capCell("window", ICON_WINDOW, "Window", "Chrome share dialog picks the window", false)}
-          ${capCell("monitor", ICON_MONITOR, "Entire screen", "Chrome share dialog picks the display", false)}
+          ${capCell("tab", ICON_TAB, "Chrome tab", "Select tab", true)}
+          ${capCell("window", ICON_WINDOW, "Window", "Share dialog", false)}
+          ${capCell("monitor", ICON_MONITOR, "Entire screen", "Share dialog", false)}
         </div>
       </div>
 
       <div id="pulltalk-tab-pick-wrap" style="padding:0 22px 0;margin-top:4px;display:none">
         <p style="margin:0 0 8px;font-size:10px;font-weight:800;letter-spacing:0.1em;color:#94a3b8">WHICH TAB TO RECORD</p>
-        <p style="margin:0 0 10px;font-size:12px;color:#64748b;line-height:1.5">
-          Defaults to <strong>this PR tab</strong>. The list refreshes while this dialog is open.
-        </p>
+        <p style="margin:0 0 10px;font-size:12px;color:#64748b;line-height:1.5">Defaults to this tab.</p>
         <select id="pulltalk-capture-tab" aria-label="Tab to record"
           style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;color:#0f172a;font-size:14px;cursor:pointer;box-sizing:border-box">
         </select>
         <p id="pulltalk-tab-pick-empty" style="display:none;margin:10px 0 0;font-size:12px;color:#b45309;line-height:1.45">
-          No capturable tabs found. Open a normal web page tab to record it.
+          No available tabs found. Open a standard web page tab and try again.
         </p>
       </div>
 
@@ -127,29 +122,37 @@ export function openRecordModal(prTabId: number | null): Promise<ModalResult> {
             <p style="margin:8px 0 0;text-align:center;font-size:11px;font-weight:600;color:#64748b">You</p>
           </div>
           <div style="flex:1;min-width:160px">
-            <div id="pulltalk-preview-vb-off" style="font-size:12px;color:#64748b;line-height:1.5">
-              Turn on <strong>AI virtual background</strong> to preview how your backdrop color will frame you in the recording.
-            </div>
+            <div id="pulltalk-preview-vb-off" style="font-size:12px;color:#64748b;line-height:1.5">Turn on AI background to preview.</div>
             <div id="pulltalk-preview-vb-on" style="display:none">
               <p style="margin:0 0 8px;font-size:12px;font-weight:600;color:#334155">Backdrop in recording</p>
               <div id="pulltalk-backdrop-swatch" style="height:72px;border-radius:12px;border:2px solid #e2e8f0;margin-bottom:8px"></div>
-              <p style="margin:0;font-size:11px;color:#64748b;line-height:1.45">AI segments you from the background. This swatch is the color that replaces it.</p>
+              <p style="margin:0;font-size:11px;color:#64748b;line-height:1.45">Selected color.</p>
+            </div>
+            <div id="pulltalk-preview-vb-blur" style="display:none">
+              <p style="margin:0 0 8px;font-size:12px;font-weight:600;color:#334155">Blur in recording</p>
+              <div style="height:72px;border-radius:12px;border:2px solid #e2e8f0;margin-bottom:8px;background:linear-gradient(120deg,#dbeafe,#bfdbfe,#e2e8f0)"></div>
+              <p style="margin:0;font-size:11px;color:#64748b;line-height:1.45">Background blur preview.</p>
             </div>
           </div>
         </div>
-        <p id="pulltalk-preview-denied" style="display:none;margin:12px 0 0;font-size:12px;color:#b45309">Camera preview unavailable. Allow camera for this site, or you'll still see yourself when recording starts.</p>
+        <p id="pulltalk-preview-denied" style="display:none;margin:12px 0 0;font-size:12px;color:#b45309">Camera preview unavailable.</p>
       </div>
 
       <div style="padding:18px 22px">
         <p style="margin:0 0 10px;font-size:10px;font-weight:800;letter-spacing:0.1em;color:#94a3b8">RECORDING OPTIONS</p>
         <div style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;background:#fff">
-          ${switchRow("pulltalk-cam", "Camera", "Add a picture-in-picture camera overlay to the recording.", false)}
-          ${switchRow("pulltalk-mic", "Microphone", "Record your voice with the video.", true)}
-          ${switchRow("pulltalk-ptt", "Push-to-talk", "Hold Space to talk, release to mute.", false)}
-          ${switchRow("pulltalk-vb", "AI virtual background", "Replaces your real background with the color below.", false)}
-          <div style="padding:12px 16px 16px;background:#fafafa;border-top:1px dashed #e2e8f0">
-            <span style="font-size:12px;font-weight:600;color:#64748b">Backdrop color</span>
-            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:10px">
+          ${switchRow("pulltalk-cam", "Camera", "Show camera overlay.", false)}
+          ${switchRow("pulltalk-mic", "Microphone", "Record microphone audio.", true)}
+          ${switchRow("pulltalk-ptt", "Push-to-talk", "Hold Space to talk.", false)}
+          ${switchRow("pulltalk-vb", "AI virtual background", "Use color or blur.", false)}
+          <div id="pulltalk-vb-controls" style="display:none;padding:12px 16px 16px;background:#fafafa;border-top:1px dashed #e2e8f0">
+            <span style="font-size:12px;font-weight:600;color:#64748b">Background effect</span>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+              <button type="button" class="pt-vbeffect" data-effect="color" style="padding:6px 10px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:12px;font-weight:700;cursor:pointer">Color</button>
+              <button type="button" class="pt-vbeffect" data-effect="blur" style="padding:6px 10px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:12px;font-weight:700;cursor:pointer">Blur</button>
+              <input type="hidden" id="pulltalk-vbeffect" value="color" />
+            </div>
+            <div id="pulltalk-vb-color-wrap" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:10px">
               <input type="color" id="pulltalk-vbcolor" value="#1a1a2e" title="Backdrop color"
                 style="width:48px;height:40px;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;padding:3px;background:#fff" />
               <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -210,18 +213,46 @@ export function openRecordModal(prTabId: number | null): Promise<ModalResult> {
     const camCb = card.querySelector("#pulltalk-cam") as HTMLInputElement;
     const vbCb = card.querySelector("#pulltalk-vb") as HTMLInputElement;
     const colorInput = card.querySelector("#pulltalk-vbcolor") as HTMLInputElement;
+    const bgEffectInput = card.querySelector("#pulltalk-vbeffect") as HTMLInputElement;
+    const bgEffectButtons = Array.from(card.querySelectorAll<HTMLElement>(".pt-vbeffect"));
+    const colorWrap = card.querySelector("#pulltalk-vb-color-wrap") as HTMLElement;
+    const vbControls = card.querySelector("#pulltalk-vb-controls") as HTMLElement;
+
+    const syncBgEffectControls = (): void => {
+      const effect = bgEffectInput.value === "blur" ? "blur" : "color";
+      vbControls.style.display = vbCb.checked ? "block" : "none";
+      colorWrap.style.display = effect === "color" ? "flex" : "none";
+      bgEffectButtons.forEach((btn) => {
+        const selected = btn.dataset.effect === effect;
+        btn.style.borderColor = selected ? accent : "#cbd5e1";
+        btn.style.background = selected ? accentSoft : "#fff";
+        btn.style.color = selected ? accent : "#334155";
+      });
+    };
+    syncBgEffectControls();
 
     const camPreview = createCameraPreview(
       card.querySelector("#pulltalk-preview-wrap") as HTMLElement,
       card.querySelector("#pulltalk-cam-preview") as HTMLVideoElement,
       card.querySelector("#pulltalk-preview-vb-on") as HTMLElement,
       card.querySelector("#pulltalk-preview-vb-off") as HTMLElement,
+      card.querySelector("#pulltalk-preview-vb-blur") as HTMLElement,
       card.querySelector("#pulltalk-backdrop-swatch") as HTMLElement,
       card.querySelector("#pulltalk-preview-denied") as HTMLElement,
       colorInput,
+      bgEffectInput,
       camCb,
       vbCb,
     );
+
+    bgEffectButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const effect = btn.dataset.effect === "blur" ? "blur" : "color";
+        bgEffectInput.value = effect;
+        syncBgEffectControls();
+        camPreview.syncPreview();
+      });
+    });
 
     card.querySelectorAll(".pt-preset").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -236,7 +267,14 @@ export function openRecordModal(prTabId: number | null): Promise<ModalResult> {
     const micCb = card.querySelector<HTMLInputElement>("#pulltalk-mic")!;
     const pttCb = card.querySelector<HTMLInputElement>("#pulltalk-ptt")!;
 
-    bindSwitch(card, "pulltalk-cam", accent, () => camPreview.syncPreview());
+    bindSwitch(card, "pulltalk-cam", accent, () => {
+      if (!camCb.checked && vbCb.checked) {
+        vbCb.checked = false;
+        vbCb.dispatchEvent(new Event("change"));
+        return;
+      }
+      camPreview.syncPreview();
+    });
     bindSwitch(card, "pulltalk-mic", accent, () => {
       if (micCb.checked && pttCb.checked) {
         pttCb.checked = false;
@@ -249,7 +287,14 @@ export function openRecordModal(prTabId: number | null): Promise<ModalResult> {
         micCb.dispatchEvent(new Event("change"));
       }
     });
-    bindSwitch(card, "pulltalk-vb", accent, () => camPreview.syncPreview());
+    bindSwitch(card, "pulltalk-vb", accent, () => {
+      if (vbCb.checked && !camCb.checked) {
+        camCb.checked = true;
+        camCb.dispatchEvent(new Event("change"));
+      }
+      syncBgEffectControls();
+      camPreview.syncPreview();
+    });
 
     card.querySelectorAll('input[name="pulltalk-mode"]').forEach((el) => {
       el.addEventListener("change", () => {
@@ -314,6 +359,7 @@ export function openRecordModal(prTabId: number | null): Promise<ModalResult> {
           pushToTalk: pttCb.checked,
           virtualBackground: vbCb.checked,
           virtualBgColor: colorInput.value ?? "#1a1a2e",
+          virtualBgEffect: bgEffectInput.value === "blur" ? "blur" : "color",
           countdownSec: 0,
           alarmMinutes:
             (() => {

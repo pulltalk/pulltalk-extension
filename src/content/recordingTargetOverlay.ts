@@ -13,6 +13,7 @@ import {
   wireRecordingCapsuleUi,
   type RecordingCapsuleTool,
 } from "../shared/recordingCapsuleUi";
+import { PULLTALK_TARGET_CAPSULE_HIDDEN_KEY } from "../shared/storageKeys";
 
 const HOST_ID = "pulltalk-recording-target-overlay";
 const DRAW_CANVAS_ID = "pulltalk-draw-canvas";
@@ -579,6 +580,22 @@ function mount(): void {
   /* ── Toggle capsule visibility with H + undo/redo shortcuts ── */
 
   let capsuleVisible = true;
+  const applyCapsuleVisibility = (): void => {
+    host.style.visibility = capsuleVisible ? "visible" : "hidden";
+    host.style.pointerEvents = "none";
+    floatHost.style.pointerEvents = capsuleVisible ? "auto" : "none";
+  };
+  applyCapsuleVisibility();
+  void chrome.storage.session
+    .get(PULLTALK_TARGET_CAPSULE_HIDDEN_KEY)
+    .then((r) => {
+      capsuleVisible = !(r[PULLTALK_TARGET_CAPSULE_HIDDEN_KEY] as boolean | undefined);
+      applyCapsuleVisibility();
+    })
+    .catch(() => {
+      /* ignore storage read failures */
+    });
+
   const onKeydown = (e: KeyboardEvent): void => {
     const tag = (e.target as HTMLElement)?.tagName;
     const isInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
@@ -597,9 +614,12 @@ function mount(): void {
     if (isInput) return;
     if (e.key === "h" || e.key === "H") {
       capsuleVisible = !capsuleVisible;
-      host.style.visibility = capsuleVisible ? "visible" : "hidden";
-      host.style.pointerEvents = capsuleVisible ? "none" : "none";
-      floatHost.style.pointerEvents = capsuleVisible ? "auto" : "none";
+      applyCapsuleVisibility();
+      void chrome.storage.session
+        .set({ [PULLTALK_TARGET_CAPSULE_HIDDEN_KEY]: !capsuleVisible })
+        .catch(() => {
+          /* ignore storage write failures */
+        });
     }
   };
   window.addEventListener("keydown", onKeydown);

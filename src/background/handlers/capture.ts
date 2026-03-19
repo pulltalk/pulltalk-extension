@@ -1,5 +1,8 @@
 import type { ExtensionMessage } from "@/shared/messages";
-import { PULLTALK_CAPTURE_TAB_ID_KEY } from "@/shared/storageKeys";
+import {
+  PULLTALK_CAPTURE_TAB_ID_KEY,
+  PULLTALK_TARGET_CAPSULE_HIDDEN_KEY,
+} from "@/shared/storageKeys";
 import { teardownCaptureTabOverlay } from "../helpers/tabs";
 
 export function handleRegisterCaptureTab(
@@ -9,6 +12,7 @@ export function handleRegisterCaptureTab(
 ): void {
   void chrome.storage.session.set({
     [PULLTALK_CAPTURE_TAB_ID_KEY]: message.payload.tabId,
+    [PULLTALK_TARGET_CAPSULE_HIDDEN_KEY]: false,
   });
   sendResponse({ ok: true });
 }

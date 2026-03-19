@@ -1,4 +1,5 @@
 import { SelfieSegmentation } from "@mediapipe/selfie_segmentation";
+import type { VirtualBgEffect } from "@/shared/messages";
 
 const locateFile = (file: string): string =>
   chrome.runtime.getURL(`mediapipe/${file}`);
@@ -11,7 +12,10 @@ export class VirtualBackgroundProcessor {
   private lastW = 0;
   private lastH = 0;
 
-  constructor(private readonly bgColor: string) {
+  constructor(
+    private readonly bgColor: string,
+    private readonly effect: VirtualBgEffect = "color",
+  ) {
     this.out = document.createElement("canvas");
     this.tmp = document.createElement("canvas");
   }
@@ -30,15 +34,34 @@ export class VirtualBackgroundProcessor {
       }
       const tctx = this.tmp.getContext("2d")!;
       const octx = this.out.getContext("2d")!;
-      tctx.save();
-      tctx.clearRect(0, 0, w, h);
-      tctx.drawImage(results.segmentationMask, 0, 0, w, h);
-      tctx.globalCompositeOperation = "source-in";
-      tctx.drawImage(results.image, 0, 0, w, h);
-      tctx.restore();
-      octx.fillStyle = this.bgColor;
-      octx.fillRect(0, 0, w, h);
-      octx.drawImage(this.tmp, 0, 0);
+
+      if (this.effect === "blur") {
+        // Build foreground person cutout in tmp first.
+        tctx.save();
+        tctx.clearRect(0, 0, w, h);
+        tctx.drawImage(results.segmentationMask, 0, 0, w, h);
+        tctx.globalCompositeOperation = "source-in";
+        tctx.drawImage(results.image, 0, 0, w, h);
+        tctx.restore();
+
+        // Draw blurred full frame as background, then place subject on top.
+        octx.save();
+        octx.clearRect(0, 0, w, h);
+        octx.filter = "blur(14px)";
+        octx.drawImage(results.image, 0, 0, w, h);
+        octx.restore();
+        octx.drawImage(this.tmp, 0, 0);
+      } else {
+        tctx.save();
+        tctx.clearRect(0, 0, w, h);
+        tctx.drawImage(results.segmentationMask, 0, 0, w, h);
+        tctx.globalCompositeOperation = "source-in";
+        tctx.drawImage(results.image, 0, 0, w, h);
+        tctx.restore();
+        octx.fillStyle = this.bgColor;
+        octx.fillRect(0, 0, w, h);
+        octx.drawImage(this.tmp, 0, 0);
+      }
       this.ready = true;
     });
     await seg.initialize();

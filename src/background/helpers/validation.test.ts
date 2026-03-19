@@ -21,6 +21,7 @@ describe("validateCapturePayload", () => {
     pushToTalk: false,
     virtualBackground: false,
     virtualBgColor: "#009900",
+    virtualBgEffect: "color",
     countdownSec: 0,
     alarmMinutes: null,
   };

@@ -1,11 +1,13 @@
 export function createCameraPreview(
   previewWrap: HTMLElement,
   videoEl: HTMLVideoElement,
-  vbOnHint: HTMLElement,
+  vbColorHint: HTMLElement,
   vbOffHint: HTMLElement,
+  vbBlurHint: HTMLElement,
   swatch: HTMLElement,
   deniedEl: HTMLElement,
   colorInput: HTMLInputElement,
+  bgEffectInput: HTMLInputElement,
   camCb: HTMLInputElement,
   vbCb: HTMLInputElement,
 ): { syncPreview: () => void; cleanup: () => void } {
@@ -49,8 +51,10 @@ export function createCameraPreview(
     if (show) void ensurePreviewStream();
     else stopPreviewStream();
     const vb = vbCb.checked;
-    vbOnHint.style.display = vb ? "block" : "none";
+    const effect = bgEffectInput.value === "blur" ? "blur" : "color";
     vbOffHint.style.display = vb ? "none" : "block";
+    vbColorHint.style.display = vb && effect === "color" ? "block" : "none";
+    vbBlurHint.style.display = vb && effect === "blur" ? "block" : "none";
     updateSwatch();
   }
 

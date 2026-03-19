@@ -1,5 +1,8 @@
 import type { ExtensionMessage } from "@/shared/messages";
-import { PULLTALK_CAPTURE_TAB_ID_KEY } from "@/shared/storageKeys";
+import {
+  PULLTALK_CAPTURE_TAB_ID_KEY,
+  PULLTALK_TARGET_CAPSULE_HIDDEN_KEY,
+} from "@/shared/storageKeys";
 
 export function sendToPrTab(tabId: number, msg: ExtensionMessage): void {
   chrome.tabs.sendMessage(tabId, msg).catch(() => {
@@ -27,7 +30,10 @@ export async function teardownCaptureTabOverlay(): Promise<void> {
       /* tab closed or no listener */
     }
   }
-  await chrome.storage.session.remove(PULLTALK_CAPTURE_TAB_ID_KEY);
+  await chrome.storage.session.remove([
+    PULLTALK_CAPTURE_TAB_ID_KEY,
+    PULLTALK_TARGET_CAPSULE_HIDDEN_KEY,
+  ]);
 }
 
 export async function findGithubPrTab(

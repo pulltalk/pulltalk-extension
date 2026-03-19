@@ -43,7 +43,8 @@ export class RecordSession {
       if (payload.virtualBackground) {
         try {
           this.vbPip = new VirtualBackgroundProcessor(
-            payload.virtualBgColor || "#1a1a2e"
+            payload.virtualBgColor || "#1a1a2e",
+            payload.virtualBgEffect ?? "color",
           );
           await this.vbPip.init();
           this.compositor.virtualBgPip = this.vbPip;

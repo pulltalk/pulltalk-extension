@@ -207,7 +207,7 @@ export async function runProcessAndUpload(
     eyebrow: "Encoding",
     infoHtml:
       "<strong>Keep this tab open</strong> while FFmpeg runs. Closing the tab cancels processing.",
-    indeterminate: true,
+    indeterminate: false,
   });
 
   try {
@@ -219,9 +219,13 @@ export async function runProcessAndUpload(
     await runUpload(newKey, prMeta, state, modal, ui);
   } catch (e) {
     modal.hide();
-    ui.setInlineErr(
-      e instanceof Error ? e.message : "Processing failed. Try upload without edits.",
-    );
+    const errorText =
+      e instanceof Error
+        ? e.message
+        : typeof e === "string"
+          ? e
+          : `Processing failed: ${String(e)}`;
+    ui.setInlineErr(errorText || "Processing failed. Try upload without edits.");
     ui.btnApply.disabled = false;
     ui.btnUpload.disabled = false;
     ui.btnDiscard.disabled = false;

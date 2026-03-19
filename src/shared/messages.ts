@@ -6,6 +6,7 @@ export type RecordingType = "tab" | "screen";
 export type DisplaySurfaceHint = "browser" | "window" | "monitor";
 
 export type CaptureMode = "tab" | "window" | "monitor";
+export type VirtualBgEffect = "color" | "blur";
 
 /** Written to session storage when opening the recorder setup flow from a PR tab */
 export type RecorderSetupContext = {
@@ -30,6 +31,7 @@ export type StartRecordingPayload = {
   pushToTalk: boolean;
   virtualBackground: boolean;
   virtualBgColor: string;
+  virtualBgEffect: VirtualBgEffect;
   /** Deprecated — always 0 (no pre-roll countdown). */
   countdownSec: number;
   alarmMinutes: number | null;
