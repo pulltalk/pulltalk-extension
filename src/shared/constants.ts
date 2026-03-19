@@ -30,3 +30,15 @@ export const EDITOR_REENCODE_BPS = "4M";
 export const EDITOR_REENCODE_CPU_USED = "4";
 export const EDITOR_REENCODE_DEADLINE = "good";
 
+/* ── Editor ffmpeg.wasm (memory / two-pass) ──────────────────────── */
+
+/** Frame area above this uses scaled-first single-pass ordering (trim-only etc.). */
+export const EDITOR_WASM_PIXEL_THRESHOLD = 1280 * 720;
+
+/** Large blobs get scaled-first ordering even if resolution is unknown/low. */
+export const EDITOR_WASM_BLOB_SCALED_FIRST_BYTES = 24 * 1024 * 1024;
+
+/** Pass A downscale cap for crop pipeline (smaller intermediate = lower wasm peak RAM). */
+export const EDITOR_WASM_TWO_PASS_MAX_W = 1280;
+export const EDITOR_WASM_TWO_PASS_MAX_H = 720;
+

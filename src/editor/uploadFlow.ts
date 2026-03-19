@@ -5,6 +5,9 @@ import type { EditorState } from "./editorState";
 import type { PrMeta } from "./editorState";
 import { processVideo } from "./ffmpegProcessor";
 
+const PROCESSING_FINAL_HINT =
+  " If this keeps failing, try “Upload without edits” or a shorter clip — in-browser encoding has strict memory limits.";
+
 export type ModalHandle = {
   show: (o: { title: string; infoHtml: string; eyebrow?: string; indeterminate?: boolean }) => void;
   setProgress: (pct: number) => void;
@@ -211,7 +214,19 @@ export async function runProcessAndUpload(
   });
 
   try {
-    const outBlob = await processVideo(blob, state, (pct) => modal.setProgress(pct));
+    const outBlob = await processVideo(blob, state, {
+      onProgress: (pct) => modal.setProgress(pct),
+      onStage: (eyebrow) => {
+        modal.setProgress(0);
+        modal.show({
+          title: "Processing video…",
+          eyebrow,
+          infoHtml:
+            "<strong>Keep this tab open</strong> while FFmpeg runs. Closing the tab cancels processing.",
+          indeterminate: false,
+        });
+      },
+    });
     const newKey = makeBlobKey();
     await idbPutBlob(newKey, outBlob);
     await idbDeleteBlob(draftKey);
@@ -225,7 +240,11 @@ export async function runProcessAndUpload(
         : typeof e === "string"
           ? e
           : `Processing failed: ${String(e)}`;
-    ui.setInlineErr(errorText || "Processing failed. Try upload without edits.");
+    const withHint =
+      errorText && /processing failed|fallback|step 1|step 2/i.test(errorText)
+        ? `${errorText}${PROCESSING_FINAL_HINT}`
+        : (errorText || "Processing failed. Try upload without edits.");
+    ui.setInlineErr(withHint);
     ui.btnApply.disabled = false;
     ui.btnUpload.disabled = false;
     ui.btnDiscard.disabled = false;

@@ -11,6 +11,14 @@
 3. **Stop** (PullTalk recorder tab capsule, or target-tab overlay when linked) → blob to **IndexedDB** → editor tab.
 4. **Editor** (`editor.html`): optional **trim / crop / strip audio** via **ffmpeg.wasm** → **upload to Firebase** (same page; MV3 workers cannot run Firebase Storage uploads) → `notify-pr-tab-recording-url` → background tells PR tab to insert link.
 
+### Editor processing (ffmpeg.wasm) — memory policy
+
+- **Wasm runs in a fixed heap.** Heavy **crop + encode at full resolution** is the usual cause of `RuntimeError: memory access out of bounds`.
+- **Crop applied:** **Two-pass pipeline** — (1) trim + downscale to a capped size (tiers up to 1280×720, then 960×540, then 854×480), (2) **crop + encode** on the smaller intermediate. Crop rectangles are mapped from natural video space to scaled space.
+- **Trim / strip-audio only (no crop):** Single pass with **VP9 → VP8 → VP8+scale** retries. If frame area exceeds `EDITOR_WASM_PIXEL_THRESHOLD` (720p-class) or the blob exceeds `EDITOR_WASM_BLOB_SCALED_FIRST_BYTES`, the first attempt uses **scaled VP8** to reduce peak RAM.
+- **Retries:** Any failed encode attempt resets the FFmpeg worker and tries the next strategy (not only OOM-shaped errors).
+- **Manual check matrix (release):** 720p/1080p/1440p recordings; trim-only; crop; strip audio; long vs short duration.
+
 ## Recording capsule (recorder tab UI)
 
 - **Draggable capsule** at the bottom of the recorder page (`recordingCapsule.ts`): Shadow DOM, z-index `2147483647`, black / neon green (`#19e619`) / red stop (`#FF4B4B`).
