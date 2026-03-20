@@ -19,7 +19,6 @@ const HOST_ID = "pulltalk-recording-target-overlay";
 const DRAW_CANVAS_ID = "pulltalk-draw-canvas";
 const TEXT_POP_ID = "pulltalk-overlay-text-pop";
 
-let teardown: (() => void) | null = null;
 
 type G = Window & { __pulltalkOverlayUnmount?: () => void };
 
@@ -664,11 +663,9 @@ function mount(): void {
     drawCanvas.remove();
     host.remove();
     document.getElementById(TEXT_POP_ID)?.remove();
-    teardown = null;
     delete (globalThis as unknown as G).__pulltalkOverlayUnmount;
   }
 
-  teardown = doTeardown;
   (globalThis as unknown as G).__pulltalkOverlayUnmount = doTeardown;
 }
 

@@ -76,12 +76,32 @@ export function initCropOverlay(
     updateCropCardDesc();
   }
 
+  const CROP_WARN_KEY = "pulltalk_crop_warned";
+
+  function showCropWarningOnce(): void {
+    try { if (localStorage.getItem(CROP_WARN_KEY)) return; } catch { return; }
+    try { localStorage.setItem(CROP_WARN_KEY, "1"); } catch { /* noop */ }
+
+    const toast = document.createElement("div");
+    toast.className = "pt-crop-toast";
+    toast.textContent = "Crop adds processing time and may fail on long clips.";
+    cropBar.parentElement?.insertBefore(toast, cropBar.nextSibling);
+
+    window.setTimeout(() => {
+      toast.classList.add("pt-crop-toast--out");
+      toast.addEventListener("transitionend", () => toast.remove());
+    }, 4000);
+  }
+
   function setCropMode(on: boolean): void {
     state.cropActive = on;
     cropOverlayEl.hidden = !on;
     cropBar.hidden = !on;
     cardCrop.classList.toggle("pt-action-card--active", on);
-    if (on) renderCropRect();
+    if (on) {
+      renderCropRect();
+      showCropWarningOnce();
+    }
     syncPlayOverlay();
     updateCropCardDesc();
   }

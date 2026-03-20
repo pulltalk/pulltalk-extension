@@ -7,21 +7,31 @@ import {
   EDITOR_REENCODE_DEADLINE,
   EDITOR_WASM_TWO_PASS_MAX_H,
   EDITOR_WASM_TWO_PASS_MAX_W,
+  EDITOR_CROP_SHORT_MAX_W,
+  EDITOR_CROP_SHORT_MAX_H,
+  EDITOR_CROP_MEDIUM_MAX_W,
+  EDITOR_CROP_MEDIUM_MAX_H,
+  EDITOR_CROP_LONG_MAX_W,
+  EDITOR_CROP_LONG_MAX_H,
+  EDITOR_CROP_SHORT_DURATION_S,
+  EDITOR_CROP_MEDIUM_DURATION_S,
 } from "@/shared/constants";
 import {
   computePassAScaledDims,
   mapCropToScaledSpace,
-  shouldPreferScaledSinglePassFirst,
   shouldUseTwoPassCropPipeline,
 } from "./ffmpegStrategy";
 
 let ffmpegPromise: Promise<FFmpeg> | null = null;
 let ffmpegProgressSink: ((pct: number) => void) | undefined;
 
+/** Optional flags when reporting a processing stage (e.g. server wait has no FFmpeg %). */
+export type ProcessStageMeta = { indeterminate?: boolean };
+
 export type ProcessVideoOptions = {
   onProgress?: (pct: number) => void;
   /** Shown in modal eyebrow while a sub-step runs */
-  onStage?: (eyebrow: string) => void;
+  onStage?: (eyebrow: string, meta?: ProcessStageMeta) => void;
 };
 
 async function loadFfmpeg(
@@ -116,7 +126,7 @@ function buildFilterChain(
   }
   if (strategy.maxOutputWidth && strategy.maxOutputHeight) {
     filters.push(
-      `scale='min(iw,${strategy.maxOutputWidth})':'min(ih,${strategy.maxOutputHeight})':force_original_aspect_ratio=decrease`,
+      `scale='min(iw,${strategy.maxOutputWidth})':'min(ih,${strategy.maxOutputHeight})':force_original_aspect_ratio=decrease:flags=fast_bilinear`,
     );
   }
   return filters.length > 0 ? filters.join(",") : null;
@@ -174,52 +184,46 @@ async function runFfmpegAttempt(
     const out = await ffmpeg.readFile(outputFile);
     return new Blob([out as unknown as BlobPart], { type: "video/webm" });
   } finally {
-    await ffmpeg.deleteFile(outputFile).catch(() => {});
-    await ffmpeg.deleteFile(inputFile).catch(() => {});
+    await ffmpeg.deleteFile(outputFile).catch(() => { });
+    await ffmpeg.deleteFile(inputFile).catch(() => { });
   }
 }
 
-function buildEncodeStrategies(state: EditorState, scaledFirst: boolean): EncodeStrategy[] {
-  const primaryEncode: EncodeStrategy = {
-    label: "vp9",
-    videoCodec: "libvpx-vp9",
-    videoBitrate: EDITOR_REENCODE_BPS,
-    cpuUsed: "6",
+function buildEncodeStrategies(
+  state: EditorState,
+  scaledFirst: boolean,
+  resCap?: { maxW: number; maxH: number; bitrate: string },
+): EncodeStrategy[] {
+  const maxW = resCap?.maxW ?? EDITOR_WASM_TWO_PASS_MAX_W;
+  const maxH = resCap?.maxH ?? EDITOR_WASM_TWO_PASS_MAX_H;
+  const bitrate = resCap?.bitrate ?? EDITOR_REENCODE_BPS;
+
+  const vp8Fast: EncodeStrategy = {
+    label: "vp8-fast",
+    videoCodec: "libvpx",
+    videoBitrate: bitrate,
+    cpuUsed: "8",
     deadline: "realtime",
     audioCodec: state.noAudio ? "none" : "libopus",
     audioBitrate: "96k",
+    maxOutputWidth: maxW,
+    maxOutputHeight: maxH,
   };
-  const fallbackEncode: EncodeStrategy = {
-    label: "vp8-fallback",
+  const vp8Smaller: EncodeStrategy = {
+    label: "vp8-smaller",
     videoCodec: "libvpx",
-    videoBitrate: "2500k",
-    cpuUsed: "6",
-    deadline: "realtime",
-    audioCodec: state.noAudio ? "none" : "libopus",
-    audioBitrate: "80k",
-  };
-  const fallbackScaledEncode: EncodeStrategy = {
-    label: "vp8-scaled-fallback",
-    videoCodec: "libvpx",
-    videoBitrate: "1800k",
+    videoBitrate: "1000k",
     cpuUsed: "8",
     deadline: "realtime",
     audioCodec: state.noAudio ? "none" : "libopus",
     audioBitrate: "64k",
-    maxOutputWidth: EDITOR_WASM_TWO_PASS_MAX_W,
-    maxOutputHeight: EDITOR_WASM_TWO_PASS_MAX_H,
+    maxOutputWidth: EDITOR_CROP_LONG_MAX_W,
+    maxOutputHeight: EDITOR_CROP_LONG_MAX_H,
   };
 
-  const ordered = scaledFirst
-    ? [fallbackScaledEncode, primaryEncode, fallbackEncode]
-    : [primaryEncode, fallbackEncode, fallbackScaledEncode];
-  // De-dupe by label (scaled-first puts scaled first; third may duplicate scaled — avoid)
-  const seen = new Set<string>();
-  return ordered.filter((s) => {
-    if (seen.has(s.label)) return false;
-    seen.add(s.label);
-    return true;
-  });
+  return scaledFirst
+    ? [vp8Smaller, vp8Fast]
+    : [vp8Fast, vp8Smaller];
 }
 
 async function runStrategyAttempts(
@@ -234,7 +238,7 @@ async function runStrategyAttempts(
   let ffmpeg = await getFFmpeg();
 
   for (let i = 0; i < strategies.length; i += 1) {
-    const strategy = strategies[i]!;
+    const strategy = strategies[i];
     try {
       ffmpeg = await getFFmpeg((pct) => {
         const base = Math.floor((i * 100) / totalAttempts);
@@ -256,7 +260,7 @@ async function runStrategyAttempts(
     }
   }
 
-  const detail = lastErr instanceof Error ? lastErr.message : String(lastErr ?? "Unknown error");
+  const detail = lastErr instanceof Error ? lastErr.message : "Unknown error";
   throw new Error(`Processing failed after fallback attempts: ${detail}`);
 }
 
@@ -272,9 +276,9 @@ function passAFullFrameState(state: EditorState): EditorState {
 
 /** Pass A tiers: smaller caps reduce wasm peak memory if a tier fails. */
 const PASS_A_TIERS: readonly { maxW: number; maxH: number; bitrate: string }[] = [
-  { maxW: EDITOR_WASM_TWO_PASS_MAX_W, maxH: EDITOR_WASM_TWO_PASS_MAX_H, bitrate: "2000k" },
-  { maxW: 960, maxH: 540, bitrate: "1200k" },
-  { maxW: 854, maxH: 480, bitrate: "800k" },
+  { maxW: EDITOR_CROP_SHORT_MAX_W, maxH: EDITOR_CROP_SHORT_MAX_H, bitrate: "2000k" },
+  { maxW: EDITOR_CROP_MEDIUM_MAX_W, maxH: EDITOR_CROP_MEDIUM_MAX_H, bitrate: "1200k" },
+  { maxW: EDITOR_CROP_LONG_MAX_W, maxH: EDITOR_CROP_LONG_MAX_H, bitrate: "800k" },
 ];
 
 async function processVideoTwoPassCrop(
@@ -295,7 +299,7 @@ async function processVideoTwoPassCrop(
   let lastPassAErr: unknown = null;
 
   for (let t = 0; t < PASS_A_TIERS.length; t += 1) {
-    const tier = PASS_A_TIERS[t]!;
+    const tier = PASS_A_TIERS[t];
     const dims = computePassAScaledDims(state.vNatW, state.vNatH, tier.maxW, tier.maxH);
     sw = dims.sw;
     sh = dims.sh;
@@ -318,7 +322,7 @@ async function processVideoTwoPassCrop(
         passAState,
         { kind: "segment", start: trimStart, len: trimLen },
         [passAStrategy],
-        (p) => onProgress?.(Math.floor(p * 0.42)),
+        (p) => onProgress?.(Math.floor(p * 0.45)),
       );
       lastPassAErr = null;
       break;
@@ -329,7 +333,7 @@ async function processVideoTwoPassCrop(
   }
 
   if (!midBlob) {
-    const detail = lastPassAErr instanceof Error ? lastPassAErr.message : String(lastPassAErr ?? "Unknown error");
+    const detail = lastPassAErr instanceof Error ? lastPassAErr.message : "Unknown error";
     throw new Error(`Processing failed (step 1 — trim & resize): ${detail}`);
   }
 
@@ -363,7 +367,7 @@ async function processVideoTwoPassCrop(
     passBState,
     { kind: "full" },
     passBStrategies,
-    (p) => onProgress?.(42 + Math.floor(p * 0.58)),
+    (p) => onProgress?.(45 + Math.floor(p * 0.55)),
   );
 }
 
@@ -374,6 +378,20 @@ function normalizeProcessOptions(
     return { onProgress: third };
   }
   return third ?? {};
+}
+
+/**
+ * Picks adaptive max resolution for crop re-encodes based on clip duration.
+ * Longer clips get more aggressive downscaling to stay within wasm memory/speed limits.
+ */
+function cropResolutionForDuration(trimLenSec: number): { maxW: number; maxH: number; bitrate: string } {
+  if (trimLenSec < EDITOR_CROP_SHORT_DURATION_S) {
+    return { maxW: EDITOR_CROP_SHORT_MAX_W, maxH: EDITOR_CROP_SHORT_MAX_H, bitrate: "2500k" };
+  }
+  if (trimLenSec < EDITOR_CROP_MEDIUM_DURATION_S) {
+    return { maxW: EDITOR_CROP_MEDIUM_MAX_W, maxH: EDITOR_CROP_MEDIUM_MAX_H, bitrate: "1500k" };
+  }
+  return { maxW: EDITOR_CROP_LONG_MAX_W, maxH: EDITOR_CROP_LONG_MAX_H, bitrate: "1000k" };
 }
 
 export async function processVideo(
@@ -388,47 +406,51 @@ export async function processVideo(
   const len = Math.max(0.1, Math.min(e - s, state.dur - s + 1e6));
   if (!Number.isFinite(len) || len <= 0) throw new Error("Trim range invalid");
 
-  const fullFrame = isCropFullFrame(state);
-  const needsCrop = !fullFrame;
+  const needsCrop = !isCropFullFrame(state);
   const hasTrimEdit = state.durationKnown
     && (s > 0.05 || state.dur - e > 0.05);
   const hasAudioEdit = state.noAudio;
-  const needsReencode = needsCrop || hasTrimEdit || hasAudioEdit;
+  const hasAnyEdit = needsCrop || hasTrimEdit || hasAudioEdit;
 
-  const fastPath: EncodeStrategy = {
-    label: "copy",
-    videoCodec: "copy",
-    audioCodec: state.noAudio ? "none" : "copy",
-  };
+  if (!hasAnyEdit) {
+    return blob;
+  }
 
-  if (!needsReencode) {
+  // Trim and/or strip-audio WITHOUT crop → stream copy (instant, any length)
+  if (!needsCrop) {
+    onStage?.("Trimming\u2026");
+    const copyPath: EncodeStrategy = {
+      label: "copy",
+      videoCodec: "copy",
+      audioCodec: hasAudioEdit ? "none" : "copy",
+    };
     return runStrategyAttempts(
       sourceBuffer,
       state,
-      { kind: "segment", start: s, len: len },
-      [fastPath],
+      { kind: "segment", start: s, len },
+      [copyPath],
       onProgress,
     );
   }
 
-  const twoPass = shouldUseTwoPassCropPipeline(needsReencode, needsCrop);
+  // Crop (with or without trim/strip-audio) → must re-encode
+  const res = cropResolutionForDuration(len);
+  if (len >= EDITOR_CROP_SHORT_DURATION_S) {
+    onStage?.("Encoding crop (downscaled for performance)\u2026");
+  } else {
+    onStage?.("Encoding crop\u2026");
+  }
+
+  const twoPass = shouldUseTwoPassCropPipeline(true, true);
   if (twoPass) {
     return processVideoTwoPassCrop(sourceBuffer, state, s, len, { onProgress, onStage });
   }
 
-  const scaledFirst = shouldPreferScaledSinglePassFirst(
-    state.vNatW,
-    state.vNatH,
-    blob.size,
-  );
-  const strategies = buildEncodeStrategies(state, scaledFirst);
-  if (scaledFirst) {
-    onStage?.("Optimizing for browser limits (resolution)");
-  }
+  const strategies = buildEncodeStrategies(state, false, res);
   return runStrategyAttempts(
     sourceBuffer,
     state,
-    { kind: "segment", start: s, len: len },
+    { kind: "segment", start: s, len },
     strategies,
     onProgress,
   );

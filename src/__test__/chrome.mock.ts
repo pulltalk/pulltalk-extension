@@ -16,17 +16,76 @@ export type MockPort = {
   sender?: { tab?: { id: number; url?: string }; url?: string };
 };
 
-export type ChromeMock = {
-  runtime: ReturnType<typeof createMockRuntime>;
-  tabs: ReturnType<typeof createMockTabs>;
-  storage: ReturnType<typeof createMockStorage>;
-  scripting: ReturnType<typeof createMockScripting>;
-  action: ReturnType<typeof createMockAction>;
-  tabCapture: ReturnType<typeof createMockTabCapture>;
-  windows: ReturnType<typeof createMockWindows>;
+export type MockChromeRuntime = {
+  id: string;
+  getURL: Mock;
+  getManifest: Mock;
+  sendMessage: Mock;
+  onMessage: {
+    addListener: Mock;
+    removeListener: Mock;
+    hasListener: Mock;
+  };
+  onConnect: {
+    addListener: Mock;
+    removeListener: Mock;
+  };
+  lastError: chrome.runtime.LastError | null;
 };
 
-export function createMockRuntime() {
+export type MockChromeTabs = {
+  query: Mock;
+  get: Mock;
+  create: Mock;
+  update: Mock;
+  sendMessage: Mock;
+  onUpdated: { addListener: Mock; removeListener: Mock };
+  onRemoved: { addListener: Mock; removeListener: Mock };
+  getCurrent: Mock;
+};
+
+export type MockChromeStorageArea = {
+  get: Mock;
+  set: Mock;
+  remove: Mock;
+  clear: Mock;
+};
+
+export type MockChromeStorage = {
+  session: MockChromeStorageArea;
+  local: MockChromeStorageArea;
+  sync: MockChromeStorageArea;
+};
+
+export type MockChromeScripting = {
+  executeScript: Mock;
+};
+
+export type MockChromeAction = {
+  onClicked: { addListener: Mock; removeListener: Mock };
+  setBadgeText: Mock;
+  setBadgeBackgroundColor: Mock;
+};
+
+export type MockChromeTabCapture = {
+  getMediaStreamId: Mock;
+};
+
+export type MockChromeWindows = {
+  update: Mock;
+};
+
+export type ChromeMock = {
+  runtime: MockChromeRuntime;
+  tabs: MockChromeTabs;
+  storage: MockChromeStorage;
+  scripting: MockChromeScripting;
+  action: MockChromeAction;
+  tabCapture: MockChromeTabCapture;
+  windows: MockChromeWindows;
+};
+
+export function createMockRuntime(): MockChromeRuntime {
   return {
     id: "test-extension-id",
     getURL: vi.fn((path: string) => `chrome-extension://test-id/${path}`),
@@ -50,7 +109,7 @@ export function createMockRuntime() {
   };
 }
 
-export function createMockTabs() {
+export function createMockTabs(): MockChromeTabs {
   return {
     query: vi.fn(() => Promise.resolve([])),
     get: vi.fn((id: number) =>
@@ -77,15 +136,15 @@ export function createMockTabs() {
   };
 }
 
-export function createMockStorage() {
+export function createMockStorage(): MockChromeStorage {
   const stores: Record<string, Record<string, unknown>> = {
     session: {},
     local: {},
     sync: {},
   };
 
-  function makeArea(name: string) {
-    const store = stores[name]!;
+  function makeArea(name: string): MockChromeStorageArea {
+    const store = stores[name];
     return {
       get: vi.fn((keys: string | string[]) => {
         const ks = typeof keys === "string" ? [keys] : keys;
@@ -124,13 +183,13 @@ export function createMockStorage() {
   };
 }
 
-export function createMockScripting() {
+export function createMockScripting(): MockChromeScripting {
   return {
     executeScript: vi.fn(() => Promise.resolve([])),
   };
 }
 
-export function createMockAction() {
+export function createMockAction(): MockChromeAction {
   return {
     onClicked: {
       addListener: vi.fn(),
@@ -141,7 +200,7 @@ export function createMockAction() {
   };
 }
 
-export function createMockTabCapture() {
+export function createMockTabCapture(): MockChromeTabCapture {
   return {
     getMediaStreamId: vi.fn(
       (_opts: unknown, cb?: (id: string) => void) => {
@@ -151,7 +210,7 @@ export function createMockTabCapture() {
   };
 }
 
-export function createMockWindows() {
+export function createMockWindows(): MockChromeWindows {
   return {
     update: vi.fn(() => Promise.resolve({})),
   };

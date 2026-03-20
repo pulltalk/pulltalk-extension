@@ -379,7 +379,7 @@ export function wireRecordingCapsuleUi(
   const btnStop = $(".btn-stop");
   const btnTools = $("#pt-tools-toggle");
   const toolsPanel = $("#pt-tools-panel");
-  const colorInput = $("#pt-color") as HTMLInputElement;
+  const colorInput = $<HTMLInputElement>("#pt-color");
 
   const targetSlim = opts.capsuleLayout === "target-slim";
   if (targetSlim) {
@@ -429,8 +429,8 @@ export function wireRecordingCapsuleUi(
     });
   });
 
-  const btnUndo = shadow.querySelector('.tool[data-action="undo"]') as HTMLElement | null;
-  const btnRedo = shadow.querySelector('.tool[data-action="redo"]') as HTMLElement | null;
+  const btnUndo = shadow.querySelector<HTMLElement>('.tool[data-action="undo"]');
+  const btnRedo = shadow.querySelector<HTMLElement>('.tool[data-action="redo"]');
 
   btnUndo?.addEventListener("click", () => opts.onUndo?.());
   btnRedo?.addEventListener("click", () => opts.onRedo?.());
@@ -559,17 +559,17 @@ export function wireRecordingCapsuleUi(
   window.addEventListener("resize", onResize);
 
   return {
-    setElapsedSeconds(sec: number) {
+    setElapsedSeconds(sec: number): void {
       timerEl.textContent = formatCapsuleElapsed(sec);
     },
-    setActiveTool(t: RecordingCapsuleTool) {
+    setActiveTool(t: RecordingCapsuleTool): void {
       setToolButtonsActive(t);
     },
-    setUndoRedoState(canUndo: boolean, canRedo: boolean) {
+    setUndoRedoState(canUndo: boolean, canRedo: boolean): void {
       btnUndo?.setAttribute("data-disabled", canUndo ? "false" : "true");
       btnRedo?.setAttribute("data-disabled", canRedo ? "false" : "true");
     },
-    destroy() {
+    destroy(): void {
       window.removeEventListener("resize", onResize);
     },
   };

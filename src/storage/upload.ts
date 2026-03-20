@@ -16,8 +16,9 @@ export async function uploadVideoBlob(
     throw new Error("Invalid video blob: empty or null");
   }
   if (videoBlob.size > MAX_SIZE) {
+    const maxMb = Math.round(MAX_SIZE / (1024 * 1024));
     throw new Error(
-      `Video too large: ${(videoBlob.size / 1024 / 1024).toFixed(2)}MB (max 100MB)`
+      `Video too large: ${(videoBlob.size / 1024 / 1024).toFixed(2)}MB (max ${maxMb}MB)`
     );
   }
   if (!isFirebaseConfigured()) {

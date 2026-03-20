@@ -8,11 +8,25 @@ import { initTransport } from "./transport";
 import { initTrimPanel } from "./trimPanel";
 import { initCropOverlay } from "./cropOverlay";
 import { getFFmpeg } from "./ffmpegProcessor";
+const DEV_SAMPLE_DRAFT_KEY = "pulltalk_dev_fixture";
+
+function isEditorDevToolsEnabled(): boolean {
+  return (
+    Boolean(import.meta.env.DEV)
+    || import.meta.env.VITE_PULLTALK_EDITOR_DEV_TOOLS === "true"
+  );
+}
 import { runUpload, runProcessAndUpload, type ModalHandle } from "./uploadFlow";
 
 /* ── Boot helpers ─────────────────────────────────────────────── */
 
-const root = document.getElementById("root")!;
+function requireElement(id: string): HTMLElement {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`Missing #${id} element`);
+  return el;
+}
+
+const root = requireElement("root");
 const bootEl = document.getElementById("pt-boot");
 const appEl = document.getElementById("pt-app");
 
@@ -46,42 +60,68 @@ function setupModal(): ModalHandle {
   const bannerText = document.getElementById("pt-processing-banner-text");
   const bannerPct = document.getElementById("pt-processing-banner-pct");
   let fakeTimer: number | null = null;
+  /** Last known % from real progress or indeterminate pulse (for handoff between stages). */
+  let lastProgress = 0;
 
   function clearTimers(): void {
     if (fakeTimer != null) { window.clearInterval(fakeTimer); fakeTimer = null; }
   }
 
+  function applyProgressVisual(pct: number): void {
+    lastProgress = Math.max(0, Math.min(100, pct));
+    if (fill) fill.style.width = `${lastProgress}%`;
+    if (pctEl) pctEl.textContent = `${Math.round(lastProgress)}%`;
+    if (bannerPct) bannerPct.textContent = `${Math.round(lastProgress)}%`;
+  }
+
+  /** Definite progress from FFmpeg / pipeline — stops indeterminate animation. */
   function setProgress(pct: number): void {
-    const p = Math.max(0, Math.min(100, pct));
-    if (fill) fill.style.width = `${p}%`;
-    if (pctEl) pctEl.textContent = `${Math.round(p)}%`;
-    if (bannerPct) bannerPct.textContent = `${Math.round(p)}%`;
+    clearTimers();
+    applyProgressVisual(pct);
+  }
+
+  function syncBannerSubtitle(): void {
+    if (!bannerText || !titleEl) return;
+    const e = eyebrowEl?.textContent?.trim() ?? "";
+    const t = titleEl.textContent?.trim() ?? "";
+    bannerText.textContent = e ? `${e} · ${t}` : t;
   }
 
   return {
-    show(o) {
+    show(o): void {
       clearTimers();
       overlay?.removeAttribute("hidden");
       if (eyebrowEl) eyebrowEl.textContent = o.eyebrow ?? "Please wait";
       if (titleEl) titleEl.textContent = o.title;
       if (infoEl) infoEl.innerHTML = o.infoHtml;
-      setProgress(0);
+      applyProgressVisual(0);
       banner?.removeAttribute("hidden");
-      if (bannerText) {
-        const e = o.eyebrow?.trim();
-        bannerText.textContent = e ? `${e} · ${o.title}` : o.title;
-      }
+      syncBannerSubtitle();
       if (o.indeterminate) {
         let p = 0;
         fakeTimer = window.setInterval(() => {
           p = Math.min(88, p + Math.random() * 6);
-          setProgress(Math.round(p));
+          applyProgressVisual(Math.round(p));
         }, 450);
       }
     },
     setProgress,
-    hide() {
+    setProcessingStage(o): void {
       clearTimers();
+      if (eyebrowEl) eyebrowEl.textContent = o.eyebrow;
+      if (o.infoHtml != null && infoEl) infoEl.innerHTML = o.infoHtml;
+      syncBannerSubtitle();
+      if (o.indeterminate) {
+        let p = lastProgress;
+        fakeTimer = window.setInterval(() => {
+          p = Math.min(94, p + Math.random() * 3.5);
+          applyProgressVisual(Math.round(p));
+        }, 520);
+      }
+    },
+    hide(): void {
+      clearTimers();
+      lastProgress = 0;
       overlay?.setAttribute("hidden", "");
       if (fill) fill.style.width = "0%";
       banner?.setAttribute("hidden", "");
@@ -95,13 +135,47 @@ function setupModal(): ModalHandle {
 
 async function main(): Promise<void> {
   const params = new URLSearchParams(location.search);
-  const draftKey = params.get("k");
-  if (!draftKey) {
-    showBoot("Missing recording. Open the editor from the recorder after you stop recording.", true);
-    return;
-  }
+  const wantDevSample = params.get("devSample") === "1";
+  let draftKey: string;
+  let blob: Blob;
 
-  showApp();
+  if (wantDevSample) {
+    if (!isEditorDevToolsEnabled()) {
+      showBoot(
+        "Editor dev sample is disabled. Add VITE_PULLTALK_EDITOR_DEV_TOOLS=true to .env, rebuild, "
+          + "or run npm run dev. See README → Faster editor testing.",
+        true,
+      );
+      return;
+    }
+    showBoot("Preparing dev sample WebM… (first time only, then cached in IndexedDB)", false);
+    try {
+      draftKey = DEV_SAMPLE_DRAFT_KEY;
+      const { loadOrCreateDevSampleBlob } = await import("./devSample");
+      blob = await loadOrCreateDevSampleBlob();
+    } catch (e) {
+      showBoot(
+        e instanceof Error ? e.message : "Could not create dev sample WebM.",
+        true,
+      );
+      return;
+    }
+    showApp();
+  } else {
+    const k = params.get("k");
+    if (!k) {
+      showBoot("Missing recording. Open the editor from the recorder after you stop recording.", true);
+      return;
+    }
+    draftKey = k;
+    showApp();
+    const fromIdb = await idbGetBlob(draftKey);
+    if (!fromIdb || fromIdb.size === 0) {
+      showBoot("Recording not found. It may have been discarded or already uploaded.", true);
+      return;
+    }
+    blob = fromIdb;
+  }
 
   const o = params.get("o") ?? "";
   const r = params.get("r") ?? "";
@@ -116,10 +190,14 @@ async function main(): Promise<void> {
   const versionLabel = document.getElementById("pt-version-label");
   if (versionLabel) versionLabel.textContent = `PullTalk v${ver}`;
 
-  const blob = await idbGetBlob(draftKey);
-  if (!blob || blob.size === 0) {
-    showBoot("Recording not found. It may have been discarded or already uploaded.", true);
-    return;
+  if (wantDevSample) {
+    const devBanner = document.getElementById("pt-dev-banner");
+    if (devBanner) {
+      devBanner.hidden = false;
+      devBanner.textContent =
+        "Dev sample mode — bookmark this URL to reopen without recording. "
+          + "Discard removes the cached sample from IndexedDB.";
+    }
   }
 
   const modal = setupModal();
@@ -221,7 +299,7 @@ async function main(): Promise<void> {
   const transport = initTransport({
     video,
     playBtn: document.getElementById("pt-play-btn") as HTMLButtonElement,
-    transportPlayIcon: document.getElementById("pt-transport-play-icon")!,
+    transportPlayIcon: document.getElementById("pt-transport-play-icon") ?? document.createElement("span"),
     playOverlay,
     skipBackBtn: document.getElementById("pt-skip-back") as HTMLButtonElement,
     skipFwdBtn: document.getElementById("pt-skip-fwd") as HTMLButtonElement,
@@ -311,7 +389,7 @@ async function main(): Promise<void> {
 
   btnDiscard.addEventListener("click", () => {
     void idbDeleteBlob(draftKey);
-    chrome.runtime.sendMessage({ type: "recording-edit-cancelled" } satisfies ExtensionMessage);
+    void chrome.runtime.sendMessage({ type: "recording-edit-cancelled" } satisfies ExtensionMessage);
     window.close();
   });
 

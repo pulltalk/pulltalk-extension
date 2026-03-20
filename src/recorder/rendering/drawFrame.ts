@@ -19,6 +19,40 @@ export type DrawFrameContext = {
   virtualBgPip: VirtualBackgroundProcessor | null;
 };
 
+export type PipLayout = {
+  pipSize: number;
+  pipR: number;
+  pipCx: number;
+  pipCy: number;
+};
+
+export function getPipLayout(
+  outputW: number,
+  outputH: number,
+  visual: CompositorVisualState,
+): PipLayout {
+  const margin = 16;
+  const pipSize = Math.min(280, outputW * 0.22);
+  const pipR = pipSize / 2;
+  const minCx = pipR + margin;
+  const maxCx = outputW - pipR - margin;
+  const minCy = pipR + margin;
+  const maxCy = outputH - pipR - margin;
+  const hasSavedPos =
+    Number.isFinite(visual.pipCxN)
+    && Number.isFinite(visual.pipCyN)
+    && visual.pipCxN >= 0
+    && visual.pipCyN >= 0;
+  const rawCx = hasSavedPos ? visual.pipCxN * outputW : maxCx;
+  const rawCy = hasSavedPos ? visual.pipCyN * outputH : maxCy;
+  return {
+    pipSize,
+    pipR,
+    pipCx: Math.min(maxCx, Math.max(minCx, rawCx)),
+    pipCy: Math.min(maxCy, Math.max(minCy, rawCy)),
+  };
+}
+
 export function drawFrame(c: DrawFrameContext): void {
   const { ctx, visual, outputW, outputH, video, cameraVideo } = c;
   const intrinsicW = video.videoWidth;
@@ -100,7 +134,7 @@ export function drawFrame(c: DrawFrameContext): void {
     ctx.stroke();
   }
 
-  drawPip(ctx, cameraVideo, c.virtualBgPip, outputW, outputH);
+  drawPip(ctx, cameraVideo, c.virtualBgPip, outputW, outputH, visual);
 }
 
 function drawStrokes(
@@ -223,14 +257,14 @@ function drawPip(
   cameraVideo: HTMLVideoElement | null,
   virtualBgPip: VirtualBackgroundProcessor | null,
   outputW: number, outputH: number,
+  visual: CompositorVisualState,
 ): void {
   if (!cameraVideo || cameraVideo.readyState < 2) return;
   const cw = cameraVideo.videoWidth || 320;
   const ch = cameraVideo.videoHeight || 240;
-  const pipSize = Math.min(280, outputW * 0.22);
-  const pipR = pipSize / 2;
-  const pipCx = outputW - pipR - 16;
-  const pipCy = outputH - pipR - 16;
+  const { pipSize, pipR, pipCx, pipCy } = getPipLayout(outputW, outputH, visual);
+  visual.pipCxN = pipCx / outputW;
+  visual.pipCyN = pipCy / outputH;
 
   ctx.save();
   ctx.fillStyle = "rgba(0,0,0,0.55)";

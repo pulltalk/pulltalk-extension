@@ -17,7 +17,7 @@ export function handleListInjectableTabs(
   sender: chrome.runtime.MessageSender,
   sendResponse: (r: unknown) => void,
 ): void {
-  void (async () => {
+  void (async (): Promise<void> => {
     const preferred =
       message.payload?.preferredTabId != null
         ? message.payload.preferredTabId
@@ -97,7 +97,7 @@ export function handleRecordingStartedInternal(
   _sender: chrome.runtime.MessageSender,
   sendResponse: (r: unknown) => void,
 ): void {
-  void (async () => {
+  void (async (): Promise<void> => {
     await ensureSessionFromStorage();
     const sess = getSession();
     if (sess?.prTabId != null) {

@@ -145,7 +145,7 @@ export class LiveCompositor {
 
     const worker = createTickWorker();
     this.bgWorker = worker;
-    this.bgWorkerHandler = () => this.renderTick();
+    this.bgWorkerHandler = (): void => this.renderTick();
 
     const onVisibility = (): void => {
       if (document.hidden) {
@@ -163,7 +163,7 @@ export class LiveCompositor {
 
     if (document.hidden) {
       cancelAnimationFrame(this.raf);
-      worker.addEventListener("message", this.bgWorkerHandler!);
+      worker.addEventListener("message", this.bgWorkerHandler);
       worker.postMessage("start");
     }
   }

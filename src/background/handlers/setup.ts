@@ -18,7 +18,7 @@ export function handleOpenRecorderSetup(
     return;
   }
 
-  void (async () => {
+  void (async (): Promise<void> => {
     const block = await getRecordingStartBlockError();
     if (block) {
       sendResponse({ ok: false, error: block });
@@ -109,7 +109,7 @@ export function handleCancelRecorderSetup(
   _sender: chrome.runtime.MessageSender,
   sendResponse: (r: { ok: boolean }) => void,
 ): void {
-  void (async () => {
+  void (async (): Promise<void> => {
     await clearRecorderSetupMarkers();
     sendResponse({ ok: true });
   })();

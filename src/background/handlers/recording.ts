@@ -10,7 +10,6 @@ import {
   PULLTALK_STOP_FOR_TAB_KEY,
 } from "@/shared/storageKeys";
 import {
-  getSession,
   setSession,
   setPendingTabCapture,
   type ActiveSession,
@@ -50,7 +49,7 @@ export function handleStartRecordingInTab(
 
   const prTabId = message.prTabId;
 
-  void (async () => {
+  void (async (): Promise<void> => {
     const fail = async (messageText: string): Promise<void> => {
       setPendingTabCapture(null);
       await clearSessionEverywhere();
@@ -115,14 +114,13 @@ export function handleStartRecordingInTab(
       };
       chrome.storage.session.set(
         { [PULLTALK_SESSION_STORAGE_KEY]: persisted },
-        async () => {
+        () => {
           if (chrome.runtime.lastError) {
             const errMsg =
               chrome.runtime.lastError.message ??
               "Could not save recording session";
             setPendingTabCapture(null);
-            await clearSessionEverywhere();
-            await clearRecorderSetupMarkers();
+            void clearSessionEverywhere().then(() => clearRecorderSetupMarkers());
             sendToPrTab(prTabId, {
               type: "recording-error",
               payload: { message: errMsg },
@@ -130,17 +128,17 @@ export function handleStartRecordingInTab(
             sendResponse({ ok: false, error: errMsg });
             return;
           }
-          await chrome.storage.session.remove([
+          void chrome.storage.session.remove([
             PULLTALK_RECORDER_SETUP_CONTEXT_KEY,
             PULLTALK_SETUP_RECORDER_TAB_ID_KEY,
           ]);
 
           if (needsActionClick) {
             try {
-              await chrome.tabs.update(payload.captureTargetTabId!, { active: true });
+              void chrome.tabs.update(payload.captureTargetTabId!, { active: true });
             } catch { /* target tab may be gone */ }
-            chrome.action.setBadgeText({ text: "REC" });
-            chrome.action.setBadgeBackgroundColor({ color: "#ef4444" });
+            void chrome.action.setBadgeText({ text: "REC" });
+            void chrome.action.setBadgeBackgroundColor({ color: "#ef4444" });
             sendResponse({ ok: true, awaitingActionClick: true });
           } else {
             sendResponse({ ok: true });
@@ -173,7 +171,7 @@ export function handleStartRecording(
     return;
   }
 
-  void (async () => {
+  void (async (): Promise<void> => {
     const fail = async (message: string): Promise<void> => {
       await clearSessionEverywhere();
       sendToPrTab(tabId, {
@@ -227,7 +225,7 @@ export function handleStartRecording(
             if (le) {
               const errMsg =
                 le.message ?? "Could not save recording session";
-              void (async () => {
+              void (async (): Promise<void> => {
                 await clearSessionEverywhere();
               })();
               sendToPrTab(tabId, {

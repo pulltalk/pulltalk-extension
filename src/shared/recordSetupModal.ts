@@ -264,8 +264,9 @@ export function openRecordModal(prTabId: number | null): Promise<ModalResult> {
       });
     });
 
-    const micCb = card.querySelector<HTMLInputElement>("#pulltalk-mic")!;
-    const pttCb = card.querySelector<HTMLInputElement>("#pulltalk-ptt")!;
+    const micCb = card.querySelector<HTMLInputElement>("#pulltalk-mic");
+    const pttCb = card.querySelector<HTMLInputElement>("#pulltalk-ptt");
+    if (!micCb || !pttCb) throw new Error("Missing mic/ptt checkbox in modal");
 
     bindSwitch(card, "pulltalk-cam", accent, () => {
       if (!camCb.checked && vbCb.checked) {
@@ -362,7 +363,7 @@ export function openRecordModal(prTabId: number | null): Promise<ModalResult> {
           virtualBgEffect: bgEffectInput.value === "blur" ? "blur" : "color",
           countdownSec: 0,
           alarmMinutes:
-            (() => {
+            ((): number | null => {
               const v = card.querySelector<HTMLSelectElement>("#pulltalk-alarm")?.value ?? "";
               return v === "" ? null : parseInt(v, 10) || null;
             })(),

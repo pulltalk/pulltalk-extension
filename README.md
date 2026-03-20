@@ -44,6 +44,21 @@ npm run lint
 npm run type-check
 ```
 
+### Faster editor testing (no record → stop loop)
+
+1. **Dev sample URL (recommended for upload / server-transcode checks)**  
+   - Add `VITE_PULLTALK_EDITOR_DEV_TOOLS=true` to `.env` and `npm run build` (or use `npm run dev`).  
+   - Copy your extension ID from `chrome://extensions`.  
+   - Open:
+     ```
+     chrome-extension://YOUR_EXTENSION_ID/src/editor/editor.html?devSample=1&o=YOUR_ORG&r=YOUR_REPO&p=PR_NUMBER
+     ```
+   - First open records a ~1s test WebM into IndexedDB; later opens reuse it instantly. **Discard** clears that cache.  
+   - `npm run dev` also enables this path without the env flag.
+
+2. **Bookmark a real editor URL** after one recording  
+   The address bar already has `?k=…&o=…&r=…&p=…`. **Reloading the extension keeps the same extension ID**, so IndexedDB usually keeps the blob — bookmark that URL and you can reopen the same clip without recording again until you upload (which deletes the draft) or discard.
+
 ## Project structure
 
 ```
@@ -88,11 +103,25 @@ service firebase.storage {
       allow write: if request.resource.size < 100 * 1024 * 1024
                       && request.resource.contentType.matches('video/.*');
     }
+    // Staging for server transcode (see docs/SERVER_TRANSCODE.md)
+    // Use allow create (not allow write) so rules don’t touch `resource` on new uploads;
+    // the playground "create" simulator errors if rules use `resource` or generic `write` wrongly.
+    match /staging/{uid}/{jobId}/{fileName} {
+      allow read: if false;
+      allow create: if request.auth != null && request.auth.uid == uid
+                       && request.resource.size < 100 * 1024 * 1024
+                       && request.resource.contentType == 'video/webm';
+      allow update, delete: if false;
+    }
   }
 }
 ```
 
 Tighten `write` for production (e.g. auth). You can drop the legacy `match` if you never used the old path layout.
+
+### Server transcode (optional, recommended for long / HD edits)
+
+Set `VITE_PULLTALK_SERVER_TRANSCODE=true`, enable **Anonymous** sign-in, **Firestore**, deploy **`firestore.rules`**, add the **staging** `match` above, and deploy Cloud Functions (`functions/`). See **[docs/SERVER_TRANSCODE.md](docs/SERVER_TRANSCODE.md)**.
 
 ## Troubleshooting
 

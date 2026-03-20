@@ -19,6 +19,10 @@
 - **Retries:** Any failed encode attempt resets the FFmpeg worker and tries the next strategy (not only OOM-shaped errors).
 - **Manual check matrix (release):** 720p/1080p/1440p recordings; trim-only; crop; strip audio; long vs short duration.
 
+### Server transcode (reliable path)
+
+When `VITE_PULLTALK_SERVER_TRANSCODE=true` and Firebase is configured (Anonymous Auth, Firestore, staging Storage rules, deployed function), **Process & upload** uses **`src/editor/uploadPipeline.ts`** → staging upload → **`pulltalkProcessStagingUpload`** (see `functions/index.js`) → job doc **`pulltalkTranscodeJobs/{jobId}`** → final **`pulltalk_videos/v/…`** URL. **All capture modes** share this path; there is no separate tab vs screen encoding fork. See [SERVER_TRANSCODE.md](SERVER_TRANSCODE.md).
+
 ## Recording capsule (recorder tab UI)
 
 - **Draggable capsule** at the bottom of the recorder page (`recordingCapsule.ts`): Shadow DOM, z-index `2147483647`, black / neon green (`#19e619`) / red stop (`#FF4B4B`).

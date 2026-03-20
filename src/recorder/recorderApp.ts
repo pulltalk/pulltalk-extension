@@ -17,6 +17,7 @@ import {
   attachPreviewWheelHandler,
   resolveRecorderPageTabId,
 } from "./overlayInjection";
+import { getPipLayout } from "./rendering/drawFrame";
 
 type Tool = RecordingCapsuleTool;
 
@@ -103,7 +104,7 @@ export async function runRecorderFlow(
     }
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : "Could not access capture";
-    chrome.runtime.sendMessage({
+    void chrome.runtime.sendMessage({
       type: "recording-error",
       payload: { message: errMsg },
     });
@@ -262,6 +263,81 @@ export async function runRecorderFlow(
 
   document.body.append(canvas);
 
+  let draggingPip = false;
+  let pipPointerId: number | null = null;
+  let pipOffsetX = 0;
+  let pipOffsetY = 0;
+
+  const getCanvasPointPx = (e: PointerEvent): { x: number; y: number } => {
+    const r = canvas.getBoundingClientRect();
+    const nx = (e.clientX - r.left) / r.width;
+    const ny = (e.clientY - r.top) / r.height;
+    return { x: nx * c.canvas.width, y: ny * c.canvas.height };
+  };
+
+  const hitPip = (x: number, y: number): boolean => {
+    if (!session.compositor.getPipVideo()) return false;
+    const { pipCx, pipCy, pipR } = getPipLayout(c.canvas.width, c.canvas.height, c.visual);
+    return Math.hypot(x - pipCx, y - pipCy) <= pipR + 6;
+  };
+
+  const movePipTo = (x: number, y: number): void => {
+    const layout = getPipLayout(c.canvas.width, c.canvas.height, c.visual);
+    const minX = layout.pipR + 16;
+    const maxX = c.canvas.width - layout.pipR - 16;
+    const minY = layout.pipR + 16;
+    const maxY = c.canvas.height - layout.pipR - 16;
+    const cx = Math.min(maxX, Math.max(minX, x));
+    const cy = Math.min(maxY, Math.max(minY, y));
+    c.visual.pipCxN = cx / c.canvas.width;
+    c.visual.pipCyN = cy / c.canvas.height;
+  };
+
+  canvas.addEventListener("pointerdown", (e) => {
+    const { x, y } = getCanvasPointPx(e);
+    if (!hitPip(x, y)) return;
+    draggingPip = true;
+    pipPointerId = e.pointerId;
+    const { pipCx, pipCy } = getPipLayout(c.canvas.width, c.canvas.height, c.visual);
+    pipOffsetX = x - pipCx;
+    pipOffsetY = y - pipCy;
+    canvas.style.cursor = "grabbing";
+    canvas.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
+
+  canvas.addEventListener("pointermove", (e) => {
+    const { x, y } = getCanvasPointPx(e);
+    if (draggingPip && pipPointerId === e.pointerId) {
+      movePipTo(x - pipOffsetX, y - pipOffsetY);
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
+    canvas.style.cursor = hitPip(x, y) ? "grab" : "";
+  }, true);
+
+  const endPipDrag = (e: PointerEvent): void => {
+    if (!draggingPip || pipPointerId !== e.pointerId) return;
+    draggingPip = false;
+    pipPointerId = null;
+    canvas.style.cursor = "";
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  };
+
+  canvas.addEventListener("pointerup", endPipDrag, true);
+  canvas.addEventListener("pointercancel", endPipDrag, true);
+  canvas.addEventListener("pointerleave", () => {
+    if (!draggingPip) canvas.style.cursor = "";
+  }, true);
+
   let capsuleVisible = true;
   window.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
@@ -311,7 +387,7 @@ export async function runRecorderFlow(
         .catch(() => {});
     }, payload.alarmMinutes * 60 * 1000);
   }
-  session.clearRecordingAlarm = () => {
+  session.clearRecordingAlarm = (): void => {
     if (alarmId != null) { clearTimeout(alarmId); alarmId = null; }
   };
 }

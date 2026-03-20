@@ -26,10 +26,11 @@ export function showToast(message: string, variant: "info" | "error" = "info"): 
   el.style.color = "#fff";
   el.style.opacity = "1";
 
+  const fadeTarget = el;
   window.setTimeout(() => {
-    el!.style.opacity = "0";
+    fadeTarget.style.opacity = "0";
     window.setTimeout(() => {
-      el?.remove();
+      fadeTarget.remove();
     }, 200);
   }, 4000);
 }

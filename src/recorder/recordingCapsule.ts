@@ -54,7 +54,7 @@ export function mountRecordingCapsule(
     setElapsedSeconds: wire.setElapsedSeconds,
     setActiveTool: wire.setActiveTool,
     setUndoRedoState: wire.setUndoRedoState,
-    destroy() {
+    destroy(): void {
       wire.destroy();
       host.remove();
     },

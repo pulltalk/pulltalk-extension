@@ -36,11 +36,11 @@ function finalizeRecording(
     return;
   }
   finalizeStarted = true;
-  p.then(({ blobKey, durationMs }) => {
+  void p.then(({ blobKey, durationMs }) => {
     window.location.href = editorUrl(blobKey, durationMs);
   }).catch((e) => {
     const msg = e instanceof Error ? e.message : String(e);
-    chrome.runtime.sendMessage({
+    void chrome.runtime.sendMessage({
       type: "recording-error",
       payload: { message: msg },
     });
@@ -48,7 +48,7 @@ function finalizeRecording(
   });
 }
 
-session.onRequestFinalize = (p) => {
+session.onRequestFinalize = (p): void => {
   finalizeRecording(p);
 };
 
@@ -70,12 +70,12 @@ function connect(): void {
         session.clearRecordingAlarm?.();
         finalizeRecording(session.stopAndPersist());
       }, msg.tabCaptureStreamId).catch((e) => {
-        const msg = e instanceof Error ? e.message : String(e);
-        chrome.runtime.sendMessage({
+        const errText = e instanceof Error ? e.message : String(e);
+        void chrome.runtime.sendMessage({
           type: "recording-error",
-          payload: { message: msg },
+          payload: { message: errText },
         });
-        showRecorderError(msg);
+        showRecorderError(errText);
       });
     }
     if (msg.type === "capture-error") {
@@ -135,7 +135,7 @@ function showAwaitingActionClick(): void {
   cancel.style.cssText =
     "padding:10px 24px;border-radius:8px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;cursor:pointer;font-size:14px;font-weight:600";
   cancel.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "recording-error", payload: { message: "Cancelled" } });
+    void chrome.runtime.sendMessage({ type: "recording-error", payload: { message: "Cancelled" } });
     window.close();
   });
   wrap.append(icon, title, desc, cancel);
@@ -182,7 +182,7 @@ async function shouldAbortWithoutRecorderConnect(): Promise<boolean> {
           payload: fullPayload,
           prTabId: ctx.prTabId,
         } satisfies ExtensionMessage,
-        (response) => resolve(response ?? { ok: false, error: "No response" })
+        (response) => resolve((response as { ok?: boolean; error?: string; awaitingActionClick?: boolean } | undefined) ?? { ok: false, error: "No response" })
       );
     }
   );
@@ -203,7 +203,7 @@ async function shouldAbortWithoutRecorderConnect(): Promise<boolean> {
   return false;
 }
 
-void (async () => {
+void (async (): Promise<void> => {
   if (await shouldAbortWithoutRecorderConnect()) {
     return;
   }

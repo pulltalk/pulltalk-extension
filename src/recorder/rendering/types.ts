@@ -43,6 +43,8 @@ export type CompositorVisualState = {
   zoom: number;
   panNx: number;
   panNy: number;
+  pipCxN: number;
+  pipCyN: number;
   strokes: AnnotationStroke[];
   texts: AnnotationText[];
   arrows: AnnotationArrow[];
@@ -58,6 +60,8 @@ export function createDefaultVisualState(): CompositorVisualState {
     zoom: 1,
     panNx: 0,
     panNy: 0,
+    pipCxN: -1,
+    pipCyN: -1,
     strokes: [],
     texts: [],
     arrows: [],

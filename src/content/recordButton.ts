@@ -97,7 +97,7 @@ export function injectRecordButton(anchor: HTMLElement): void {
     fontWeight: "500",
   });
 
-  btn.addEventListener("click", async () => {
+  btn.addEventListener("click", (): void => void (async (): Promise<void> => {
     if (btn.disabled) {
       return;
     }
@@ -141,7 +141,7 @@ export function injectRecordButton(anchor: HTMLElement): void {
       btn.disabled = false;
       showToast(errorFromUnknown(e), "error");
     }
-  });
+  })());
 
   const parent = anchor.parentElement || anchor;
   if (parent.nextSibling) {

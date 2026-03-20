@@ -25,7 +25,7 @@ export function sendOpenRecorderSetup(payload: {
             });
             return;
           }
-          resolve(response ?? { ok: false, error: "No response" });
+          resolve((response as { ok: boolean; error?: string } | undefined) ?? { ok: false, error: "No response" });
         }
       );
     } catch (e) {
@@ -54,7 +54,7 @@ export function sendStartRecording(payload: StartRecordingPayload): Promise<{
             });
             return;
           }
-          resolve(response ?? { ok: false, error: "No response" });
+          resolve((response as { ok: boolean; error?: string } | undefined) ?? { ok: false, error: "No response" });
         }
       );
     } catch (e) {

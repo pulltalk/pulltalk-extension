@@ -522,6 +522,25 @@ body {
   color: var(--pt-accent);
 }
 
+/* ── Crop warning toast ──────────────────────────────────────── */
+
+.pt-crop-toast {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(251, 146, 60, 0.14);
+  border: 1px solid rgba(251, 146, 60, 0.4);
+  color: var(--pt-danger-text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.pt-crop-toast--out {
+  opacity: 0;
+}
+
 /* ── Panels ───────────────────────────────────────────────────── */
 
 .pt-panel__title {
@@ -973,6 +992,19 @@ body {
   background: var(--pt-surface);
   color: var(--pt-text);
   font-size: 13px;
+}
+
+/* ── Dev sample banner (see README) ───────────────────────────── */
+
+.pt-dev-banner {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--pt-accent-mid);
+  background: var(--pt-accent-dim);
+  color: var(--pt-muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 /* ── Responsive ───────────────────────────────────────────────── */

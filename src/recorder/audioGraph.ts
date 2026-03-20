@@ -64,7 +64,7 @@ export function buildMixedAudioStream(
   (stream as MediaStream & { _pulltalkCtx?: AudioContext })._pulltalkCtx =
     ctx;
   (stream as MediaStream & { _pulltalkCleanup?: () => void })._pulltalkCleanup =
-    () => {
+    (): void => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       void ctx.close();

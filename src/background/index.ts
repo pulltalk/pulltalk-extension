@@ -57,7 +57,7 @@ const RECORDING_TARGET_OVERLAY_JS = "recordingTargetOverlay.js";
 
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (info.status !== "complete") return;
-  void (async () => {
+  void (async (): Promise<void> => {
     const cap = await chrome.storage.session.get(PULLTALK_CAPTURE_TAB_ID_KEY);
     const captureId = cap[PULLTALK_CAPTURE_TAB_ID_KEY] as number | undefined;
     if (captureId !== tabId) return;
@@ -79,7 +79,7 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== RECORDER_PORT_NAME) return;
   const tabId = port.sender?.tab?.id;
-  void (async () => {
+  void (async (): Promise<void> => {
     if (tabId == null) { port.disconnect(); return; }
     const sess = await resolveSessionForRecorderPort(tabId);
     if (!sess || sess.recorderTabId !== tabId) { port.disconnect(); return; }
@@ -150,7 +150,7 @@ chrome.action.onClicked.addListener((_tab) => {
   if (!pending) return;
   setPendingTabCapture(null);
 
-  void (async () => {
+  void (async (): Promise<void> => {
     let streamId: string;
     try {
       streamId = await new Promise<string>((resolve, reject) => {
@@ -165,7 +165,7 @@ chrome.action.onClicked.addListener((_tab) => {
       });
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : "Tab capture failed";
-      chrome.action.setBadgeText({ text: "" });
+      void chrome.action.setBadgeText({ text: "" });
       const sess = getSession();
       if (sess?.port) {
         sess.port.postMessage({
@@ -179,7 +179,7 @@ chrome.action.onClicked.addListener((_tab) => {
       return;
     }
 
-    chrome.action.setBadgeText({ text: "" });
+    void chrome.action.setBadgeText({ text: "" });
     const sess = getSession();
     if (!sess || sess.recorderTabId !== pending.recorderTabId || !sess.port) return;
     sess.port.postMessage({
@@ -194,7 +194,7 @@ chrome.action.onClicked.addListener((_tab) => {
 /* ── Tab removal cleanup ─────────────────────────────────────────── */
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  void (async () => {
+  void (async (): Promise<void> => {
     const setupRaw = await chrome.storage.session.get(PULLTALK_SETUP_RECORDER_TAB_ID_KEY);
     if (setupRaw[PULLTALK_SETUP_RECORDER_TAB_ID_KEY] === tabId) {
       await clearRecorderSetupMarkers();
@@ -202,7 +202,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     const pending = getPendingTabCapture();
     if (pending?.recorderTabId === tabId) {
       setPendingTabCapture(null);
-      chrome.action.setBadgeText({ text: "" });
+      void chrome.action.setBadgeText({ text: "" });
     }
     const sess = getSession();
     if (sess?.recorderTabId === tabId) {

@@ -8,6 +8,8 @@ The **editor** UI is PR-focused (trim, crop, optional mute, then WebM upload). I
 
 **Why:** Large WebMs need optional ffmpeg processing. **Upload runs in the editor tab** (not the MV3 service worker), because Firebase Storage’s web SDK uses `XMLHttpRequest`, which service workers do not provide.
 
+**Server transcode:** For clips over policy thresholds, **“Process & upload”** can skip in-browser ffmpeg.wasm and upload to **Firebase Storage staging** + a **Cloud Function** that runs server-side ffmpeg, then returns the same style of public URL for the PR comment. **Tab, window, and screen** recordings all use the same editor pipeline (`prepareEditedVideoForUpload` in `uploadPipeline.ts`). See [SERVER_TRANSCODE.md](SERVER_TRANSCODE.md). In-browser wasm remains the **fast path** for small edits when server transcode is off or not required.
+
 ## Session = one PR tab + one extension tab
 
 Upload metadata (`owner`, `repo`, `prId`) lives in the background session started from that PR. If the user **reloads the PR tab** before uploading from the editor, the session may be lost and the editor upload will **fail** (blob is deleted as orphaned). Users should keep the PR tab open until the link appears.

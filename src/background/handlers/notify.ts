@@ -17,7 +17,7 @@ export function handleNotifyRecordingUrl(
   sendResponse: (r: { ok: boolean; linkInsertedInPrTab: boolean }) => void,
 ): void {
   const { url, owner, repo, prId } = message.payload;
-  void (async () => {
+  void (async (): Promise<void> => {
     await clearSessionEverywhere();
     const prTabId = await findGithubPrTab(owner, repo, prId);
     let linkInsertedInPrTab = false;
@@ -46,7 +46,7 @@ export function handleNotifyRecordingError(
   sendResponse: (r: { ok: boolean }) => void,
 ): void {
   const p = message.payload;
-  void (async () => {
+  void (async (): Promise<void> => {
     const prTabId = await findGithubPrTab(p.owner, p.repo, p.prId);
     if (prTabId != null) {
       sendToPrTab(prTabId, {
@@ -67,7 +67,7 @@ export function handleEditCancelled(
   _sender: chrome.runtime.MessageSender,
   sendResponse: (r: { ok: boolean }) => void,
 ): void {
-  void (async () => {
+  void (async (): Promise<void> => {
     await ensureSessionFromStorage();
     const prTab = getSession()?.prTabId;
     await clearSessionEverywhere();
@@ -86,7 +86,7 @@ export function handleRecordingError(
   _sender: chrome.runtime.MessageSender,
   sendResponse: (r: { ok: boolean }) => void,
 ): void {
-  void (async () => {
+  void (async (): Promise<void> => {
     await ensureSessionFromStorage();
     const sess = getSession();
     const prTab = sess?.prTabId;

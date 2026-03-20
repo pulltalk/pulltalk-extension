@@ -22,7 +22,7 @@ export function handleTeardownTargetOverlay(
   _sender: chrome.runtime.MessageSender,
   sendResponse: (r: { ok: boolean }) => void,
 ): void {
-  void (async () => {
+  void (async (): Promise<void> => {
     await teardownCaptureTabOverlay();
     sendResponse({ ok: true });
   })();
@@ -33,7 +33,7 @@ export function handleRelayScroll(
   _sender: chrome.runtime.MessageSender,
   sendResponse: (r: { ok: boolean }) => void,
 ): void {
-  void (async () => {
+  void (async (): Promise<void> => {
     const r = await chrome.storage.session.get(PULLTALK_CAPTURE_TAB_ID_KEY);
     const tid = r[PULLTALK_CAPTURE_TAB_ID_KEY] as number | undefined;
     if (tid != null) {

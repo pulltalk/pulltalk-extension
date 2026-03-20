@@ -116,7 +116,7 @@ export class RecordSession {
       videoBitsPerSecond: videoBpsForResolution(canvasW, canvasH, RECORDING_FPS),
       audioBitsPerSecond: AUDIO_BPS,
     });
-    this.mediaRecorder.ondataavailable = (e) => {
+    this.mediaRecorder.ondataavailable = (e): void => {
       if (e.data.size > 0) {
         this.chunks.push(e.data);
       }
@@ -131,9 +131,9 @@ export class RecordSession {
       if (this.onRequestFinalize) {
         this.onRequestFinalize(p);
       } else {
-        p.catch((e) => {
+        void p.catch((e) => {
           console.error(e);
-          chrome.runtime.sendMessage({
+          void chrome.runtime.sendMessage({
             type: "recording-error",
             payload: {
               message:
@@ -161,7 +161,7 @@ export class RecordSession {
     try { this.compositor.forceRender(); } catch { /* best-effort */ }
 
     this.stopPromise = new Promise((resolve, reject) => {
-      mr.onstop = async () => {
+      mr.onstop = async (): Promise<void> => {
         try {
           void chrome.runtime.sendMessage({
             type: "pulltalk-teardown-target-overlay",
@@ -178,10 +178,10 @@ export class RecordSession {
           resolve({ blobKey, size: blob.size, durationMs });
         } catch (e) {
           await this.cleanup();
-          reject(e);
+          reject(e instanceof Error ? e : new Error(String(e)));
         }
       };
-      mr.onerror = () => {
+      mr.onerror = (): void => {
         void this.cleanup();
         reject(new Error("MediaRecorder error"));
       };

@@ -21,7 +21,7 @@ export async function writePersistedSession(
 
 export async function readPersistedSession(): Promise<PersistedSessionData | null> {
   const r = await chrome.storage.session.get(PULLTALK_SESSION_STORAGE_KEY);
-  const v = r[PULLTALK_SESSION_STORAGE_KEY];
+  const v: unknown = r[PULLTALK_SESSION_STORAGE_KEY];
   if (!v || typeof v !== "object") {
     return null;
   }

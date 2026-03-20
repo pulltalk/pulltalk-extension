@@ -3,14 +3,21 @@ import type { ExtensionMessage } from "@/shared/messages";
 import { isFirebaseConfigured, uploadVideoBlob } from "@/storage/upload";
 import type { EditorState } from "./editorState";
 import type { PrMeta } from "./editorState";
-import { processVideo } from "./ffmpegProcessor";
+import { isCropFullFrame } from "./editorState";
+import { prepareEditedVideoForUpload, prepareRecordingForUpload } from "./uploadPipeline";
 
-const PROCESSING_FINAL_HINT =
-  " If this keeps failing, try “Upload without edits” or a shorter clip — in-browser encoding has strict memory limits.";
+const PROCESSING_RETRY_HINT =
+  ' If this keeps failing, try "Upload without edits" or a shorter clip.';
 
 export type ModalHandle = {
   show: (o: { title: string; infoHtml: string; eyebrow?: string; indeterminate?: boolean }) => void;
   setProgress: (pct: number) => void;
+  /** Update eyebrow (and optional indeterminate pulse) without resetting title or zeroing progress. */
+  setProcessingStage: (o: {
+    eyebrow: string;
+    indeterminate?: boolean;
+    infoHtml?: string;
+  }) => void;
   hide: () => void;
 };
 
@@ -90,6 +97,60 @@ export function showSuccessScreen(
   }, 8000);
 }
 
+async function notifyPrTabRecordingReady(
+  url: string,
+  prMeta: PrMeta,
+): Promise<boolean> {
+  const notify = await new Promise<{ linkInsertedInPrTab?: boolean }>((resolve) => {
+    chrome.runtime.sendMessage(
+      {
+        type: "notify-pr-tab-recording-url",
+        payload: { url, owner: prMeta.owner, repo: prMeta.repo, prId: prMeta.prId },
+      } satisfies ExtensionMessage,
+      (resp: { linkInsertedInPrTab?: boolean } | undefined) => {
+        if (chrome.runtime.lastError) {
+          resolve({ linkInsertedInPrTab: false });
+          return;
+        }
+        resolve({ linkInsertedInPrTab: resp?.linkInsertedInPrTab });
+      },
+    );
+  });
+  return notify.linkInsertedInPrTab === true;
+}
+
+/** After the final video URL is known (upload or server transcode), insert PR link + success UI. */
+export async function finalizePrUploadAfterUrl(
+  url: string,
+  draftKeyToDelete: string | null,
+  prMeta: PrMeta | null,
+  modal: ModalHandle,
+  ui: {
+    root: HTMLElement;
+    appEl: HTMLElement | null;
+    btnUpload: HTMLButtonElement;
+    btnApply: HTMLButtonElement;
+    btnDiscard: HTMLButtonElement;
+  },
+): Promise<void> {
+  if (draftKeyToDelete) {
+    await idbDeleteBlob(draftKeyToDelete).catch(() => {});
+  }
+
+  let linkInsertedInPrTab = false;
+  if (prMeta) {
+    try {
+      linkInsertedInPrTab = await notifyPrTabRecordingReady(url, prMeta);
+    } catch {
+      linkInsertedInPrTab = false;
+    }
+  }
+
+  modal.hide();
+  modal.setProgress(100);
+  showSuccessScreen(ui.root, ui.appEl, url, linkInsertedInPrTab, prMeta);
+}
+
 export async function runUpload(
   blobKey: string,
   prMeta: PrMeta | null,
@@ -112,7 +173,7 @@ export async function runUpload(
   ui.btnDiscard.disabled = true;
 
   modal.show({
-    title: "Uploading…",
+    title: "Uploading\u2026",
     infoHtml:
       "<strong>Keep this tab open</strong> until the upload finishes. Closing it may interrupt the transfer.",
     indeterminate: true,
@@ -148,25 +209,11 @@ export async function runUpload(
 
   try {
     if (!upBlob || upBlob.size === 0) throw new Error("Recording data missing");
-    u = await uploadVideoBlob(upBlob, prMeta);
+    const rawPrepared = await prepareRecordingForUpload({ kind: "raw", blob: upBlob });
+    u = await uploadVideoBlob(rawPrepared.blob, prMeta);
     await idbDeleteBlob(blobKey).catch(() => {});
 
-    const notify = await new Promise<{ linkInsertedInPrTab?: boolean }>((resolve) => {
-      chrome.runtime.sendMessage(
-        {
-          type: "notify-pr-tab-recording-url",
-          payload: { url: u, owner: prMeta.owner, repo: prMeta.repo, prId: prMeta.prId },
-        } satisfies ExtensionMessage,
-        (resp: { linkInsertedInPrTab?: boolean } | undefined) => {
-          if (chrome.runtime.lastError) {
-            resolve({ linkInsertedInPrTab: false });
-            return;
-          }
-          resolve({ linkInsertedInPrTab: resp?.linkInsertedInPrTab });
-        },
-      );
-    });
-    linkInsertedInPrTab = notify.linkInsertedInPrTab === true;
+    linkInsertedInPrTab = await notifyPrTabRecordingReady(u, prMeta);
     modal.setProgress(100);
   } catch (e) {
     const errText =
@@ -174,7 +221,7 @@ export async function runUpload(
     void chrome.runtime.sendMessage({
       type: "notify-pr-tab-recording-error",
       payload: { message: errText, owner: prMeta.owner, repo: prMeta.repo, prId: prMeta.prId },
-    } satisfies ExtensionMessage);
+    } satisfies ExtensionMessage).catch(() => {});
     resetButtons();
     ui.setInlineErr(errText);
     return;
@@ -205,30 +252,50 @@ export async function runProcessAndUpload(
   ui.btnDiscard.disabled = true;
   ui.setInlineErr("");
 
+  const hasCrop = !isCropFullFrame(state);
   modal.show({
-    title: "Processing video…",
-    eyebrow: "Encoding",
-    infoHtml:
-      "<strong>Keep this tab open</strong> while FFmpeg runs. Closing the tab cancels processing.",
-    indeterminate: false,
+    title: hasCrop ? "Processing video\u2026" : "Trimming video\u2026",
+    eyebrow: hasCrop ? "Encoding" : "Trimming",
+    infoHtml: hasCrop
+      ? "<strong>Keep this tab open</strong> while encoding runs. Closing the tab cancels processing."
+      : "<strong>Keep this tab open.</strong> This should be quick.",
+    indeterminate: !hasCrop,
   });
 
+  if (!prMeta) {
+    modal.hide();
+    ui.setInlineErr(
+      "Missing PR context. Open a pull request on GitHub and start recording from the PullTalk button there.",
+    );
+    ui.btnApply.disabled = false;
+    ui.btnUpload.disabled = false;
+    ui.btnDiscard.disabled = false;
+    return;
+  }
+
   try {
-    const outBlob = await processVideo(blob, state, {
+    const result = await prepareEditedVideoForUpload(blob, state, prMeta, {
       onProgress: (pct) => modal.setProgress(pct),
-      onStage: (eyebrow) => {
-        modal.setProgress(0);
-        modal.show({
-          title: "Processing video…",
+      onStage: (eyebrow, meta) => {
+        const serverWait = meta?.indeterminate === true;
+        modal.setProcessingStage({
           eyebrow,
-          infoHtml:
-            "<strong>Keep this tab open</strong> while FFmpeg runs. Closing the tab cancels processing.",
-          indeterminate: false,
+          indeterminate: serverWait,
+          infoHtml: serverWait
+            ? "<strong>Keep this tab open.</strong> Server processing may take 1\u20132 minutes. The bar is an estimate."
+            : undefined,
         });
       },
     });
+
+    if (result.backend === "server") {
+      modal.hide();
+      await finalizePrUploadAfterUrl(result.downloadUrl, draftKey, prMeta, modal, ui);
+      return;
+    }
+
     const newKey = makeBlobKey();
-    await idbPutBlob(newKey, outBlob);
+    await idbPutBlob(newKey, result.blob);
     await idbDeleteBlob(draftKey);
     modal.hide();
     await runUpload(newKey, prMeta, state, modal, ui);
@@ -240,11 +307,17 @@ export async function runProcessAndUpload(
         : typeof e === "string"
           ? e
           : `Processing failed: ${String(e)}`;
-    const withHint =
-      errorText && /processing failed|fallback|step 1|step 2/i.test(errorText)
-        ? `${errorText}${PROCESSING_FINAL_HINT}`
-        : (errorText || "Processing failed. Try upload without edits.");
-    ui.setInlineErr(withHint);
+    const isRetryable = /processing failed|fallback|step 1|step 2|too large|server|timed out|upload failed|auth/i.test(errorText);
+    const finalMsg = isRetryable
+      ? `${errorText}${PROCESSING_RETRY_HINT}`
+      : (errorText || 'Processing failed. Try "Upload without edits".');
+    ui.setInlineErr(finalMsg);
+
+    void chrome.runtime.sendMessage({
+      type: "notify-pr-tab-recording-error",
+      payload: { message: finalMsg, owner: prMeta.owner, repo: prMeta.repo, prId: prMeta.prId },
+    } satisfies ExtensionMessage).catch(() => {});
+
     ui.btnApply.disabled = false;
     ui.btnUpload.disabled = false;
     ui.btnDiscard.disabled = false;
