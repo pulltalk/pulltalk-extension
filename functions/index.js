@@ -41,6 +41,7 @@ function runFfmpeg(args) {
 
 exports.pulltalkProcessStagingUpload = onObjectFinalized(
   {
+    region: "us-east1",
     memory: "2GiB",
     timeoutSeconds: 540,
     cpu: 2,
@@ -168,7 +169,7 @@ exports.pulltalkProcessStagingUpload = onObjectFinalized(
 
       let userMsg = msg;
       if (/exited/.test(msg)) {
-        userMsg = "Video processing failed on the server. The clip may be in an unsupported format. Try a shorter clip or use "Upload without edits".";
+        userMsg = "Video processing failed on the server. The clip may be in an unsupported format. Try a shorter clip or use \"Upload without edits\".";
       } else if (/ENOMEM|memory/.test(msg)) {
         userMsg = "Server ran out of memory processing this clip. Try a shorter recording.";
       }

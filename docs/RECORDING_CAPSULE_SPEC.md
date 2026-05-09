@@ -4,11 +4,13 @@ Specification for the **recorder-tab** overlay capsule (not the GitHub PR conten
 
 ## Context
 
-| Area | Responsibility |
-|------|----------------|
-| **Recorder tab** (`recorder.html` → `runRecorderFlow`) | Full-screen compositor canvas + **draggable capsule** for timer, stop, and **live annotation tools** (draw, highlight, text, arrow, rect, clear). |
-| **Captured tab** (injected `recordingTargetOverlay.js`) | **Slim** capsule: timer, Stop, hint only (`capsuleLayout: 'target-slim'`). No drawing here — marks belong on the recorder compositor. |
-| **PR tab** (`content` script on `github.com`) | Record button, modal, toasts only. No in-page timer or stop—everything else on the PullTalk recorder tab. |
+
+| Area                                                    | Responsibility                                                                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Recorder tab** (`recorder.html` → `runRecorderFlow`)  | Full-screen compositor canvas + **draggable capsule** for timer, stop, and **live annotation tools** (draw, highlight, text, arrow, rect, clear). |
+| **Captured tab** (injected `recordingTargetOverlay.js`) | **Slim** capsule: timer, Stop, hint only (`capsuleLayout: 'target-slim'`). No drawing here — marks belong on the recorder compositor.             |
+| **PR tab** (`content` script on `github.com`)           | Record button, modal, toasts only. No in-page timer or stop—everything else on the PullTalk recorder tab.                                         |
+
 
 Annotations must run on the **recorder tab compositor** because they paint into the pipeline that feeds `MediaRecorder`. A separate draw layer on the captured tab would duplicate UX and could diverge from what is encoded unless kept in sync.
 
@@ -24,7 +26,7 @@ Annotations must run on the **recorder tab compositor** because they paint into 
 
 - **Shadow DOM** on a fixed host so recorder page styles never leak in or out.
 - **Viewport-clamped** drag (pointer events on grip; click vs drag threshold).
-- **`z-index: 2147483647`** on the host.
+- `**z-index: 2147483647`** on the host.
 - **Accessibility:** `aria-label` on all icon controls; toolbar `role="toolbar"` where appropriate.
 - **State:** tools expanded/collapsed; main bar minimized to grip only; active tool synced with compositor pointer handlers.
 
@@ -33,3 +35,4 @@ Annotations must run on the **recorder tab compositor** because they paint into 
 - `src/recorder/recordingCapsule.ts` — mount/teardown, styles, icons (SVG).
 - `src/recorder/recorderApp.ts` — wires capsule to `LiveCompositor` and `RecordSession` stop.
 - `src/recorder/main.ts` — passes `requestStopRecording` into `runRecorderFlow`.
+
